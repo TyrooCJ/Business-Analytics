@@ -236,10 +236,8 @@
 
         window.onload = function() {
             const geoSelect = document.getElementById('filterMarket');
-            const uniqueGeos = new Set([
-                ...Object.values(masterDict).map(item => normalizeGeo(item.Geo)),
-                ...Object.keys(aopMonthly).map(normalizeGeo)
-            ]);
+            // Ensure US BD is always available, plus whatever is in the master dictionary
+            const uniqueGeos = new Set(['US BD', ...Object.values(masterDict).map(item => normalizeGeo(item.Geo)), ...Object.keys(aopMonthly).map(normalizeGeo)]);
             Array.from(uniqueGeos).sort().forEach(geo => {
                 const opt = document.createElement('option');
                 opt.value = geo; opt.text = geo; geoSelect.add(opt);
@@ -271,11 +269,19 @@
         }
 
         function normalizeGeo(g) {
-            if (!g) return g;
+            if (!g) return 'APAC - Others';
             const s = String(g).trim();
             const lower = s.toLowerCase();
-            // Normalized mapping fix
+            
+            // Core mappings based on the master sheet
             if (lower === 'cj bd' || lower === 'us bd' || lower === 'cj us') return 'US BD';
+            if (lower === 'sg') return 'SEA';
+            if (lower === 'in') return 'India';
+            if (lower === 'cn') return 'China';
+            if (lower === 'kr') return 'Korea';
+            if (lower === 'vn') return 'Vietnam';
+            if (lower === 'apac' || lower === 'nan') return 'APAC - Others';
+            
             return s;
         }
 
@@ -349,10 +355,22 @@
 
                 const processRecord = (rec, isGross) => {
                     const rawAcc = rec.advertiser;
-                    const matchedKey = Object.keys(masterDict).find(k => rawAcc.includes(k) || k.includes(rawAcc)) || null;
-                    const accMeta = matchedKey ? masterDict[matchedKey] : { Geo: 'APAC - Others', Type: 'Existing Book', history: {} };
+                    const lowerAcc = rawAcc.toLowerCase();
+                    const matchedKey = Object.keys(masterDict).find(k => lowerAcc.includes(k) || k.includes(lowerAcc)) || null;
+                    
+                    // Create a mutable copy of the account metadata
+                    let accMeta = matchedKey ? { ...masterDict[matchedKey] } : { Geo: 'APAC - Others', Type: 'Existing Book', history: {} };
+                    
+                    // --- DYNAMIC OVERRIDE ENGINE ---
+                    // Force specific keywords into the US BD market regardless of historical dict mappings
+                    if (lowerAcc.includes('agoda') || lowerAcc.includes('premier farnell') || lowerAcc.includes('accor') || lowerAcc.includes('expedia')) {
+                        accMeta.Geo = 'US BD';
+                    } else {
+                        // Normalize any other Geo names
+                        accMeta.Geo = normalizeGeo(accMeta.Geo);
+                    }
 
-                    if (marketFilter !== 'All' && normalizeGeo(accMeta.Geo) !== normalizeGeo(marketFilter)) return;
+                    if (marketFilter !== 'All' && accMeta.Geo !== normalizeGeo(marketFilter)) return;
 
                     const bookKey = accMeta.Type.toLowerCase().includes('new') ? 'New' : 'Existing';
 
