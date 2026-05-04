@@ -701,7 +701,10 @@
                 const max = topNet[0].net; const pct = Math.max(5, (a.net / max) * 100);
                 topNetHtml += `
                 <li>
-                    <div class="flex justify-between mb-1"><span class="truncate pr-2">${toTitleCase(a.name)}</span><span class="font-medium">${fmtK(a.net)}</span></div>
+                    <div class="flex justify-between mb-1 items-end">
+                        <span class="block overflow-hidden whitespace-nowrap pr-2 pb-0.5 leading-tight flex-1">${toTitleCase(a.name)}</span>
+                        <span class="font-medium pb-0.5 leading-tight whitespace-nowrap">${fmtK(a.net)}</span>
+                    </div>
                     <div class="w-full bg-gray-100 h-1"><div class="bg-tyroo-sky h-1" style="width: ${pct}%"></div></div>
                 </li>`;
             });
@@ -724,8 +727,8 @@
             else if (topGrowth.length === 0) topGrowthHtml += `<li class="text-gray-400 italic">Insufficient historical data</li>`;
             topGrowth.forEach(a => topGrowthHtml += `
                 <li class="flex justify-between items-center border-b border-dashed border-gray-100 pb-2 last:border-0">
-                    <span class="truncate pr-2">${toTitleCase(a.name)}</span>
-                    <span class="bg-tyroo-green/10 text-tyroo-green px-2 py-0.5 font-bold text-xs rounded-sm">${fmtPct(a.growth, true)}</span>
+                    <span class="block overflow-hidden whitespace-nowrap pr-2 pb-0.5 leading-tight flex-1">${toTitleCase(a.name)}</span>
+                    <span class="bg-tyroo-green/10 text-tyroo-green px-2 py-1 font-bold text-xs rounded-sm inline-block whitespace-nowrap">${fmtPct(a.growth, true)}</span>
                 </li>`);
             topGrowthHtml += `</ul></div>`;
 
@@ -741,7 +744,10 @@
             if (worstRev.length === 0) worstRevHtml += `<li class="text-gray-400 italic">Clean portfolio (no major reversals)</li>`;
             worstRev.forEach(a => worstRevHtml += `
                 <li class="flex flex-col border-b border-dashed border-gray-100 pb-2 last:border-0">
-                    <div class="flex justify-between mb-1"><span class="truncate pr-2">${toTitleCase(a.name)}</span><span class="font-bold text-tyroo-maroon">${a.revPct.toFixed(1)}%</span></div>
+                    <div class="flex justify-between mb-1 items-end">
+                        <span class="block overflow-hidden whitespace-nowrap pr-2 pb-0.5 leading-tight flex-1">${toTitleCase(a.name)}</span>
+                        <span class="font-bold text-tyroo-maroon pb-0.5 leading-tight whitespace-nowrap">${a.revPct.toFixed(1)}%</span>
+                    </div>
                     <span class="text-xs text-gray-500 text-right">Lost: ${fmtK(a.rev)}</span>
                 </li>`);
             worstRevHtml += `</ul></div>`;
@@ -776,9 +782,6 @@
             document.getElementById('insightsContainer').innerHTML = topNetHtml + topGrowthHtml + worstRevHtml + splitHtml;
         }
 
-        // -----------------------------------------------------------------------------
-        // Export Engine
-        // -----------------------------------------------------------------------------
         async function exportToPDF() {
             if (!globalGrossRecords || !globalNetRecords) return alert("Please generate the dashboard first before exporting.");
             
@@ -795,6 +798,9 @@
             const origAnimation = Chart.defaults.animation; Chart.defaults.animation = false;
 
             try {
+                // FORCE THE EXPORT TO WAIT FOR GOOGLE FONTS TO FULLY LOAD
+                await document.fonts.ready;
+
                 for (let market of markets) {
                     marketSelect.value = market; typeSelect.value = 'All'; 
                     await processDashboard(true); await new Promise(r => setTimeout(r, 250));
@@ -804,7 +810,13 @@
                     titleDiv.innerHTML = `<h2 class="text-2xl font-serif mb-4 pb-2 border-b border-tyroo-ink text-tyroo-ink">${market === 'All' ? 'Global Portfolio' : market + ' Region'} — Executive Summary</h2>`;
                     dashboardEl.insertBefore(titleDiv, dashboardEl.firstChild);
 
-                    const canvas = await html2canvas(dashboardEl, { scale: 2, useCORS: true, backgroundColor: '#FAFAF7' });
+                    const canvas = await html2canvas(dashboardEl, { 
+                        scale: 2, 
+                        useCORS: true, 
+                        backgroundColor: '#FAFAF7',
+                        logging: false
+                    });
+                    
                     document.getElementById('pdfTitleLabel').remove();
 
                     const imgData = canvas.toDataURL('image/png'); const imgProps = pdf.getImageProperties(imgData);
