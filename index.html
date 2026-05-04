@@ -169,7 +169,7 @@
                 </div>
             </div>
 
-            <!-- KPI RIBBON (Dynamically Populated) -->
+            <!-- KPI RIBBON -->
             <div id="kpiRibbon" class="grid grid-cols-2 md:grid-cols-5 gap-8">
                 <div class="col-span-full py-12 text-center border border-dashed border-gray-300 text-gray-400">
                     <p class="font-serif text-xl">Awaiting data injection...</p>
@@ -177,7 +177,7 @@
                 </div>
             </div>
 
-            <!-- CHART FULL WIDTH -->
+            <!-- CHART -->
             <div>
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="font-serif text-2xl text-tyroo-ink">Performance Trajectory</h2>
@@ -188,7 +188,7 @@
                 </div>
             </div>
 
-            <!-- NEWSPAPER TABLE FULL WIDTH -->
+            <!-- TABLE -->
             <div>
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="font-serif text-2xl text-tyroo-ink">Financial Ledger</h2>
@@ -273,7 +273,9 @@
         function normalizeGeo(g) {
             if (!g) return g;
             const s = String(g).trim();
-            if (s.toLowerCase() === 'cj bd' || s.toLowerCase() === 'us bd') return 'US BD';
+            const lower = s.toLowerCase();
+            // Normalized mapping fix
+            if (lower === 'cj bd' || lower === 'us bd' || lower === 'cj us') return 'US BD';
             return s;
         }
 
@@ -690,20 +692,21 @@
         function renderInsightCards(scope, allStats, ctx) {
             const accArray = Object.values(scope.accountStats).filter(a => a.net > 0 || a.gross > 0);
 
-            // 1. Top Revenue
+            // 1. Top Revenue (Manual JS string truncation + ample padding to fix html2canvas clipping)
             const topNet = [...accArray].filter(a => a.net >= 1000 || (a.pastPeriod || 0) >= 1000).sort((a, b) => b.net - a.net).slice(0, 5);
             let topNetHtml = `
                 <div class="bg-white p-5 border border-gray-200 shadow-sm rounded-none border-t-4 border-t-tyroo-blue h-full">
                     <h4 class="font-serif text-lg text-tyroo-ink mb-4 border-b border-gray-100 pb-2">Top Revenue Engines</h4>
-                    <ul class="text-sm space-y-3 tnum">`;
-            if (topNet.length === 0) topNetHtml += `<li class="text-gray-400 italic">Insufficient Data</li>`;
+                    <ul class="text-sm tnum">`;
+            if (topNet.length === 0) topNetHtml += `<li class="text-gray-400 italic py-2">Insufficient Data</li>`;
             topNet.forEach(a => {
                 const max = topNet[0].net; const pct = Math.max(5, (a.net / max) * 100);
+                const safeName = toTitleCase(a.name).length > 20 ? toTitleCase(a.name).substring(0, 20) + '...' : toTitleCase(a.name);
                 topNetHtml += `
-                <li>
-                    <div class="flex justify-between mb-1 items-end">
-                        <span class="block overflow-hidden whitespace-nowrap pr-2 pb-0.5 leading-tight flex-1">${toTitleCase(a.name)}</span>
-                        <span class="font-medium pb-0.5 leading-tight whitespace-nowrap">${fmtK(a.net)}</span>
+                <li class="mb-3">
+                    <div class="flex justify-between items-center w-full">
+                        <span class="inline-block py-1 pr-2 leading-normal">${safeName}</span>
+                        <span class="inline-block py-1 font-medium leading-normal">${fmtK(a.net)}</span>
                     </div>
                     <div class="w-full bg-gray-100 h-1"><div class="bg-tyroo-sky h-1" style="width: ${pct}%"></div></div>
                 </li>`;
@@ -722,14 +725,17 @@
             let topGrowthHtml = `
                 <div class="bg-white p-5 border border-gray-200 shadow-sm rounded-none border-t-4 border-t-tyroo-green h-full">
                     <h4 class="font-serif text-lg text-tyroo-ink mb-4 border-b border-gray-100 pb-2">Highest Velocity (${growthLabel})</h4>
-                    <ul class="text-sm space-y-3 tnum">`;
-            if (ctx.reviewType === 'WBR') topGrowthHtml += `<li class="text-gray-400 italic">Not applicable for weekly</li>`;
-            else if (topGrowth.length === 0) topGrowthHtml += `<li class="text-gray-400 italic">Insufficient historical data</li>`;
-            topGrowth.forEach(a => topGrowthHtml += `
-                <li class="flex justify-between items-center border-b border-dashed border-gray-100 pb-2 last:border-0">
-                    <span class="block overflow-hidden whitespace-nowrap pr-2 pb-0.5 leading-tight flex-1">${toTitleCase(a.name)}</span>
-                    <span class="bg-tyroo-green/10 text-tyroo-green px-2 py-1 font-bold text-xs rounded-sm inline-block whitespace-nowrap">${fmtPct(a.growth, true)}</span>
-                </li>`);
+                    <ul class="text-sm tnum">`;
+            if (ctx.reviewType === 'WBR') topGrowthHtml += `<li class="text-gray-400 italic py-2">Not applicable for weekly</li>`;
+            else if (topGrowth.length === 0) topGrowthHtml += `<li class="text-gray-400 italic py-2">Insufficient historical data</li>`;
+            topGrowth.forEach(a => {
+                const safeName = toTitleCase(a.name).length > 20 ? toTitleCase(a.name).substring(0, 20) + '...' : toTitleCase(a.name);
+                topGrowthHtml += `
+                <li class="flex justify-between items-center border-b border-dashed border-gray-100 py-1.5 last:border-0 mb-1">
+                    <span class="inline-block pr-2 leading-normal">${safeName}</span>
+                    <span class="bg-tyroo-green/10 text-tyroo-green px-2 py-1 font-bold text-xs rounded-sm inline-block">${fmtPct(a.growth, true)}</span>
+                </li>`;
+            });
             topGrowthHtml += `</ul></div>`;
 
             // 3. Reversals
@@ -740,16 +746,19 @@
             let worstRevHtml = `
                 <div class="bg-white p-5 border border-gray-200 shadow-sm rounded-none border-t-4 border-t-tyroo-maroon h-full">
                     <h4 class="font-serif text-lg text-tyroo-ink mb-4 border-b border-gray-100 pb-2">Critical Reversals</h4>
-                    <ul class="text-sm space-y-3 tnum">`;
-            if (worstRev.length === 0) worstRevHtml += `<li class="text-gray-400 italic">Clean portfolio (no major reversals)</li>`;
-            worstRev.forEach(a => worstRevHtml += `
-                <li class="flex flex-col border-b border-dashed border-gray-100 pb-2 last:border-0">
-                    <div class="flex justify-between mb-1 items-end">
-                        <span class="block overflow-hidden whitespace-nowrap pr-2 pb-0.5 leading-tight flex-1">${toTitleCase(a.name)}</span>
-                        <span class="font-bold text-tyroo-maroon pb-0.5 leading-tight whitespace-nowrap">${a.revPct.toFixed(1)}%</span>
+                    <ul class="text-sm tnum">`;
+            if (worstRev.length === 0) worstRevHtml += `<li class="text-gray-400 italic py-2">Clean portfolio (no major reversals)</li>`;
+            worstRev.forEach(a => {
+                const safeName = toTitleCase(a.name).length > 20 ? toTitleCase(a.name).substring(0, 20) + '...' : toTitleCase(a.name);
+                worstRevHtml += `
+                <li class="flex flex-col border-b border-dashed border-gray-100 py-1.5 last:border-0 mb-1">
+                    <div class="flex justify-between items-center w-full">
+                        <span class="inline-block pr-2 leading-normal">${safeName}</span>
+                        <span class="font-bold text-tyroo-maroon leading-normal">${a.revPct.toFixed(1)}%</span>
                     </div>
-                    <span class="text-xs text-gray-500 text-right">Lost: ${fmtK(a.rev)}</span>
-                </li>`);
+                    <span class="text-xs text-gray-500 text-right mt-1">Lost: ${fmtK(a.rev)}</span>
+                </li>`;
+            });
             worstRevHtml += `</ul></div>`;
 
             // 4. Book Split
@@ -785,6 +794,9 @@
         async function exportToPDF() {
             if (!globalGrossRecords || !globalNetRecords) return alert("Please generate the dashboard first before exporting.");
             
+            // Force scroll to top before taking the screenshot to avoid viewport displacement bugs
+            window.scrollTo(0, 0);
+
             const loader = document.getElementById('pdfLoader'); loader.classList.remove('hidden');
             const { jsPDF } = window.jspdf; const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth(), pdfHeight = pdf.internal.pageSize.getHeight();
