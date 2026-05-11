@@ -133,9 +133,10 @@ const masterDict = {"cyberlink":{"Geo":"China","Type":"Existing Book","history":
 
 // ── RUNTIME STATE ────────────────────────────────────────────
 let chartInstance = null;
-let liveRecords   = {};
-let userMappings  = {};
-let lastUpdated   = null;
+let liveRecords     = {};
+let userMappings    = {};
+let monthlyArchive  = {};   // rolled-up net totals: { cid: { "April'26": 12345, ... } }
+let lastUpdated     = null;
 let bgmPlaying    = true;  // default ON
 
 // ── HELPERS ──────────────────────────────────────────────────
@@ -201,12 +202,13 @@ async function init() {
         const res=await fetch(url);
         if(!res.ok) throw new Error('fetch failed');
         const data=await res.json();
-        liveRecords  = data.records||{};
-        userMappings = data.userMappings||{};
-        lastUpdated  = data.lastUpdated;
+        liveRecords    = data.records||{};
+        userMappings   = data.userMappings||{};
+        monthlyArchive = data.monthlyArchive||{};
+        lastUpdated    = data.lastUpdated;
     } catch(e) {
         console.warn('latest.json fetch failed, using masterDict only:', e.message);
-        liveRecords={}; userMappings={}; lastUpdated=null;
+        liveRecords={}; userMappings={}; monthlyArchive={}; lastUpdated=null;
     }
 
     document.getElementById('lastUpdatedBadge').textContent =
@@ -228,53 +230,80 @@ async function init() {
 // ── BUILD ACCOUNT MAP ─────────────────────────────────────────
 function buildAccountMap() {
     const accounts={};
-    // Seed from cidGeoMap
+    // Seed from cidGeoMap (master sheet — source of truth for Geo/Type)
     for(const [cid,meta] of Object.entries(cidGeoMap)){
         const nk=findMasterKey(meta.Name.toLowerCase());
         const history=(nk&&masterDict[nk])?masterDict[nk].history:{};
         const live=liveRecords[cid]||{gross:{},net:{}};
-        accounts[cid]={cid,name:meta.Name,geo:meta.Geo,type:meta.Type,history,liveGross:live.gross||{},liveNet:live.net||{}};
+        accounts[cid]={cid,name:meta.Name,geo:meta.Geo,type:meta.Type,
+            history,                          // masterDict monthly Dec'23–Mar'26
+            archiveNet:monthlyArchive[cid]||{}, // rolled-up monthly Apr'26+
+            liveGross:live.gross||{},           // daily gross (current month only)
+            liveNet:live.net||{}                // daily net (current month only)
+        };
     }
     // Add userMappings accounts not in cidGeoMap
     for(const [cid,meta] of Object.entries(userMappings)){
         if(accounts[cid]) continue;
         const live=liveRecords[cid]||{gross:{},net:{}};
-        accounts[cid]={cid,name:meta.Name||`Account ${cid}`,geo:meta.Geo,type:meta.Type,history:{},liveGross:live.gross||{},liveNet:live.net||{}};
+        accounts[cid]={cid,name:meta.Name||`Account ${cid}`,geo:meta.Geo,type:meta.Type,
+            history:{},archiveNet:monthlyArchive[cid]||{},
+            liveGross:live.gross||{},liveNet:live.net||{}};
     }
-    // Add any remaining liveRecords CIDs
+    // Add any remaining liveRecords CIDs not yet mapped
     for(const cid of Object.keys(liveRecords)){
         if(accounts[cid]) continue;
         const live=liveRecords[cid];
-        accounts[cid]={cid,name:`Account ${cid}`,geo:'APAC - Others',type:'Existing Book',history:{},liveGross:live.gross||{},liveNet:live.net||{}};
+        accounts[cid]={cid,name:`Account ${cid}`,geo:'APAC - Others',type:'Existing Book',
+            history:{},archiveNet:monthlyArchive[cid]||{},
+            liveGross:live.gross||{},liveNet:live.net||{}};
     }
     return accounts;
 }
 
 // ── PERIOD COMPUTATION ────────────────────────────────────────
+// Priority chain for NET:
+//   1. liveNet daily keys  (current month, always most recent)
+//   2. archiveNet monthly  (rolled-up Apr'26+ completed months)
+//   3. masterDict history  (hardcoded Dec'23–Mar'26)
 function computePeriodNet(acc, months, year) {
-    const monthKeys=months.map(m=>`${MONTH_FULL[m]}'${String(year).slice(-2)}`);
-    let total=0;
-    const liveByMonth={};
+    const monthKeys = months.map(m => `${MONTH_FULL[m]}'${String(year).slice(-2)}`);
+    let total = 0;
+
+    // Sum liveNet daily data by month
+    const liveByMonth = {};
     for(const [k,v] of Object.entries(acc.liveNet)){
-        const mk=dateKeyToMonthKey(k);
-        if(mk&&monthKeys.includes(mk)) liveByMonth[mk]=(liveByMonth[mk]||0)+v;
+        const mk = dateKeyToMonthKey(k);
+        if(mk && monthKeys.includes(mk)) liveByMonth[mk] = (liveByMonth[mk]||0) + v;
     }
+
     for(const mk of monthKeys){
-        total += liveByMonth[mk]!==undefined ? liveByMonth[mk] : (acc.history[mk]||0);
+        if(liveByMonth[mk] !== undefined) {
+            // Tier 1: live daily data exists for this month
+            total += liveByMonth[mk];
+        } else if(acc.archiveNet[mk] !== undefined) {
+            // Tier 2: rolled-up monthly archive (Apr'26+ completed months)
+            total += acc.archiveNet[mk];
+        } else {
+            // Tier 3: masterDict hardcoded history (Dec'23–Mar'26)
+            total += (acc.history[mk] || 0);
+        }
     }
     return total;
 }
 
+// GROSS: only available for current month from liveGross (for reversal calc)
+// Historical gross not stored — returns 0 for any prior period
 function computePeriodGross(acc, months, year) {
-    const monthKeys=months.map(m=>`${MONTH_FULL[m]}'${String(year).slice(-2)}`);
-    let total=0;
-    const liveByMonth={};
+    const monthKeys = months.map(m => `${MONTH_FULL[m]}'${String(year).slice(-2)}`);
+    let total = 0;
+    const liveByMonth = {};
     for(const [k,v] of Object.entries(acc.liveGross)){
-        const mk=dateKeyToMonthKey(k);
-        if(mk&&monthKeys.includes(mk)) liveByMonth[mk]=(liveByMonth[mk]||0)+v;
+        const mk = dateKeyToMonthKey(k);
+        if(mk && monthKeys.includes(mk)) liveByMonth[mk] = (liveByMonth[mk]||0) + v;
     }
     for(const mk of monthKeys){
-        total += liveByMonth[mk]!==undefined ? liveByMonth[mk] : (acc.history[mk]||0);
+        total += liveByMonth[mk] || 0;
     }
     return total;
 }
@@ -305,10 +334,11 @@ function buildDailyNet(accounts, months, year, marketFilter, typeFilter) {
                 else       existing[k]=(existing[k]||0)+val;
             }
         } else {
-            // Distribute monthly history evenly across days of the month
+            // No live daily data — distribute monthly total evenly across days
+            // Priority: archiveNet (rolled-up Apr'26+) > masterDict history (Dec'23–Mar'26)
             for(const m of months){
                 const mk=`${MONTH_FULL[m]}'${String(year).slice(-2)}`;
-                const monthTotal=(acc.history[mk]||0)*trip;
+                const monthTotal=((acc.archiveNet[mk] !== undefined ? acc.archiveNet[mk] : (acc.history[mk]||0)))*trip;
                 if(!monthTotal) continue;
                 const daysInMonth=getDaysInMonth(year,m);
                 const dailyVal=monthTotal/daysInMonth;
@@ -385,14 +415,10 @@ function renderDashboard() {
 
         const curNet  =computePeriodNet(acc,currentPeriodMonths,currentYear)*trip;
         const curGross=computePeriodGross(acc,currentPeriodMonths,currentYear)*trip;
-        const prevNet =prevPeriodMonths.reduce((s,m)=>{
-            const mk=`${MONTH_FULL[m]}'${String(prevPeriodYear).slice(-2)}`;
-            return s+(acc.history[mk]||0);
-        },0)*trip;
-        const prevYrNet=prevYearPeriodMonths.reduce((s,m)=>{
-            const mk=`${MONTH_FULL[m]}'${String(prevYearPeriodYear).slice(-2)}`;
-            return s+(acc.history[mk]||0);
-        },0)*trip;
+        // Use computePeriodNet for prev periods too — critical so April 2026 data
+        // from liveRecords is included (not just masterDict history which ends Mar'26)
+        const prevNet   =computePeriodNet(acc,prevPeriodMonths,prevPeriodYear)*trip;
+        const prevYrNet =computePeriodNet(acc,prevYearPeriodMonths,prevYearPeriodYear)*trip;
 
         [bookKey,'All'].forEach(b=>{
             const bk=buckets[b];
