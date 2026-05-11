@@ -336,10 +336,19 @@ async function handlePush() {
         const { merged, stats } = mergeRecords(currentDB.records||{}, parsedGross, parsedNet);
         log(`🔀 Added: ${stats.added} date-entries, Skipped: ${stats.skipped}, New accounts: ${stats.newAccounts}`);
 
+        // Auto-rollup completed months → monthlyArchive (net only)
+        const { updatedRecords, updatedArchive, rolledMonths } = autoRollup(merged, currentDB.monthlyArchive||{});
+        if (rolledMonths.length > 0) {
+            log(`📦 Auto-archived completed months → ${rolledMonths.join(', ')}`);
+        } else {
+            log(`📅 No completed months to archive (current month stays as daily data)`);
+        }
+
         const payload = {
             lastUpdated: new Date().toISOString().slice(0,10),
             userMappings: allMappings,
-            records: merged
+            monthlyArchive: updatedArchive,
+            records: updatedRecords
         };
 
         log('🚀 Committing to GitHub...');
@@ -358,6 +367,25 @@ async function handlePush() {
     }
 }
 
+// ── DATE HELPERS ───────────────────────────────────────────
+// dateKey "1-Apr-26" → { month: 3, year: 2026 }
+function dateKeyParts(k) {
+    const m = String(k).match(/^(\d{1,2})-([a-zA-Z]{3,4})-(\d{2,4})$/);
+    if (!m) return null;
+    let [, , mon, yr] = m;
+    if (yr.length === 2) yr = '20' + yr;
+    const months3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months4 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; // same abbrevs
+    const idx = months3.findIndex(x => mon.toLowerCase().startsWith(x.toLowerCase()));
+    return idx >= 0 ? { month: idx, year: parseInt(yr) } : null;
+}
+
+// { month, year } → masterDict-style key e.g. "April'26"
+const ARCHIVE_MONTHS = ['Jan','Feb','Mar','April','May','June','July','Aug','Sep','Oct','Nov','Dec'];
+function toMonthKey(month, year) {
+    return `${ARCHIVE_MONTHS[month]}'${String(year).slice(-2)}`;
+}
+
 // ── MERGE ──────────────────────────────────────────────────
 function mergeRecords(existing, newGross, newNet) {
     const merged = JSON.parse(JSON.stringify(existing));
@@ -367,16 +395,104 @@ function mergeRecords(existing, newGross, newNet) {
         if (!merged[cid]) { merged[cid]={gross:{},net:{}}; newAccounts++; }
         if (!merged[cid].gross) merged[cid].gross={};
         if (!merged[cid].net)   merged[cid].net={};
+        // Gross daily (for current period reversals only)
         for (const [k,v] of Object.entries(newGross[cid]||{})) {
             if (merged[cid].gross[k]!==undefined) skipped++;
             else { merged[cid].gross[k]=v; added++; }
         }
+        // Net daily (source of truth for all reporting)
         for (const [k,v] of Object.entries(newNet[cid]||{})) {
             if (merged[cid].net[k]!==undefined) skipped++;
             else { merged[cid].net[k]=v; added++; }
         }
     }
     return { merged, stats:{added, skipped, newAccounts} };
+}
+
+// ── AUTO ROLLUP ────────────────────────────────────────────
+// After merging, detect which months are now complete (i.e. the latest
+// date in liveRecords has moved past them). Roll those months' daily
+// net totals into monthlyArchive and remove the daily entries.
+// Returns { updatedRecords, updatedArchive, rolledMonths[] }
+function autoRollup(records, existingArchive) {
+    const archive = JSON.parse(JSON.stringify(existingArchive || {}));
+
+    // Find the latest date across all net records
+    let maxMonth = -1, maxYear = 0;
+    for (const cid of Object.keys(records)) {
+        for (const k of Object.keys(records[cid].net || {})) {
+            const p = dateKeyParts(k);
+            if (!p) continue;
+            if (p.year > maxYear || (p.year === maxYear && p.month > maxMonth)) {
+                maxYear = p.year; maxMonth = p.month;
+            }
+        }
+    }
+    if (maxMonth < 0) return { updatedRecords: records, updatedArchive: archive, rolledMonths: [] };
+
+    // Collect all months present in liveRecords
+    const monthsPresent = new Set();
+    for (const cid of Object.keys(records)) {
+        for (const k of Object.keys(records[cid].net || {})) {
+            const p = dateKeyParts(k);
+            if (p) monthsPresent.add(`${p.year}-${p.month}`);
+        }
+    }
+
+    // Any month that is NOT the latest month is considered complete → roll it up
+    const toRoll = [];
+    for (const ym of monthsPresent) {
+        const [yr, mo] = ym.split('-').map(Number);
+        if (yr < maxYear || (yr === maxYear && mo < maxMonth)) {
+            toRoll.push({ year: yr, month: mo });
+        }
+    }
+
+    if (!toRoll.length) return { updatedRecords: records, updatedArchive: archive, rolledMonths: [] };
+
+    const updated = JSON.parse(JSON.stringify(records));
+    const rolledLabels = [];
+
+    for (const { year, month } of toRoll) {
+        const mk = toMonthKey(month, year);
+        rolledLabels.push(mk);
+
+        for (const cid of Object.keys(updated)) {
+            const netEntries = updated[cid].net || {};
+            let monthNet = 0;
+            const toDelete = [];
+
+            for (const [k, v] of Object.entries(netEntries)) {
+                const p = dateKeyParts(k);
+                if (p && p.year === year && p.month === month) {
+                    monthNet += v;
+                    toDelete.push(k);
+                }
+            }
+
+            if (monthNet !== 0) {
+                // Write to archive — net only, additive in case partial data existed
+                if (!archive[cid]) archive[cid] = {};
+                // Only write if not already archived (preserve first write)
+                if (archive[cid][mk] === undefined) {
+                    archive[cid][mk] = monthNet;
+                }
+            }
+
+            // Remove rolled daily entries from liveRecords
+            for (const k of toDelete) delete updated[cid].net[k];
+
+            // Also clean gross for that month (no longer needed after rollup)
+            for (const k of Object.keys(updated[cid].gross || {})) {
+                const p = dateKeyParts(k);
+                if (p && p.year === year && p.month === month) {
+                    delete updated[cid].gross[k];
+                }
+            }
+        }
+    }
+
+    return { updatedRecords: updated, updatedArchive: archive, rolledMonths: rolledLabels };
 }
 
 // ── GITHUB API ─────────────────────────────────────────────
@@ -407,16 +523,22 @@ async function loadCurrentStatus() {
     try {
         const { data } = await fetchCurrentData();
         const records = data.records||{};
+        const archive = data.monthlyArchive||{};
         const cids = Object.keys(records);
-        let tg=0,tn=0;
-        for (const c of cids) { tg+=Object.keys(records[c].gross||{}).length; tn+=Object.keys(records[c].net||{}).length; }
+        let tn=0;
+        for (const c of cids) { tn+=Object.keys(records[c].net||{}).length; }
+        // Count archived months
+        const archivedMonths = new Set();
+        for (const cid of Object.keys(archive)) {
+            for (const mk of Object.keys(archive[cid])) archivedMonths.add(mk);
+        }
         grid.style.display='grid';
         grid.innerHTML=`
             <div class="stat-box"><div class="sl">Last Upload</div><div class="sv" style="font-size:15px;margin-top:4px">${data.lastUpdated||'—'}</div></div>
-            <div class="stat-box"><div class="sl">Accounts in DB</div><div class="sv">${cids.length}</div></div>
-            <div class="stat-box"><div class="sl">Gross Data Pts</div><div class="sv">${tg.toLocaleString()}</div></div>
-            <div class="stat-box"><div class="sl">Net Data Pts</div><div class="sv">${tn.toLocaleString()}</div></div>
+            <div class="stat-box"><div class="sl">Live Daily Pts</div><div class="sv">${tn.toLocaleString()}</div></div>
+            <div class="stat-box"><div class="sl">Archived Months</div><div class="sv">${archivedMonths.size}</div></div>
             <div class="stat-box"><div class="sl">Saved Mappings</div><div class="sv">${Object.keys(data.userMappings||{}).length}</div></div>
+            ${archivedMonths.size > 0 ? `<div class="stat-box" style="grid-column:1/-1"><div class="sl">Months in Archive</div><div style="font-size:12px;color:#374151;margin-top:4px">${Array.from(archivedMonths).join(' · ')}</div></div>` : ''}
         `;
     } catch(e) {
         grid.style.display='grid';
