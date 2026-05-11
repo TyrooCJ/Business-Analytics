@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tyroo|CJ — Data Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'DM Sans',sans-serif;background:#FAFAF7;color:#191919;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+        .card{background:#fff;border:1px solid #e5e7eb;padding:48px;max-width:640px;width:100%;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+        .brand-badge{background:#214295;color:#fff;font-weight:700;font-size:16px;padding:3px 8px;display:inline-block;margin-bottom:24px}
+        h1{font-family:'Fraunces',serif;font-size:28px;font-weight:400;color:#191919;margin-bottom:4px}
+        .subtitle{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:#9ca3af;font-weight:600;margin-bottom:36px}
+        .field{margin-bottom:20px}
+        label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:#6b7280;margin-bottom:8px}
+        input[type=password],input[type=file]{width:100%;border:1px solid #d1d5db;padding:10px 14px;font-size:14px;font-family:'DM Sans',sans-serif;background:#FAFAF7;color:#191919;outline:none;transition:border-color .15s}
+        input[type=password]:focus{border-color:#214295}
+        input[type=file]{cursor:pointer;padding:8px 14px}
+        .btn{width:100%;background:#214295;color:#fff;border:none;padding:13px 24px;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;transition:background .15s;letter-spacing:.03em}
+        .btn:hover{background:#191919}
+        .btn:disabled{background:#9ca3af;cursor:not-allowed}
+        .btn-sec{background:#f3f4f6;color:#374151;border:1px solid #d1d5db}
+        .btn-sec:hover{background:#e5e7eb}
+        .status{margin-top:20px;padding:14px 16px;font-size:13px;display:none;border-left:3px solid}
+        .status.info{background:#eff6ff;border-color:#214295;color:#1e40af;display:block}
+        .status.success{background:#f0fdf4;border-color:#5BA976;color:#166534;display:block}
+        .status.error{background:#fef2f2;border-color:#6E1B35;color:#991b1b;display:block}
+        .log{margin-top:16px;background:#f8fafc;border:1px solid #e5e7eb;padding:12px 14px;font-size:12px;line-height:1.7;color:#4b5563;max-height:200px;overflow-y:auto;display:none;font-family:'Courier New',monospace}
+        .log.visible{display:block}
+        hr{border:none;border-top:1px solid #e5e7eb;margin:28px 0}
+        .note{font-size:12px;color:#9ca3af;line-height:1.6}
+        .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+        .stat-box{background:#f8fafc;border:1px solid #e5e7eb;padding:12px 14px}
+        .stat-box .sl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#9ca3af;font-weight:700}
+        .stat-box .sv{font-family:'Fraunces',serif;font-size:22px;color:#191919;margin-top:2px}
+        /* Unmapped accounts panel */
+        #unmappedPanel{display:none;margin-top:20px}
+        .unmapped-header{font-size:13px;font-weight:600;color:#191919;margin-bottom:12px;padding:10px 14px;background:#fff9e6;border:1px solid #FFBE60;border-left:3px solid #FFBE60}
+        .unmapped-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;padding:8px 0;border-bottom:1px dashed #e5e7eb}
+        .unmapped-row:last-child{border-bottom:none}
+        .unmapped-name{font-size:13px;color:#191919;font-weight:500}
+        .unmapped-cid{font-size:11px;color:#9ca3af}
+        select.geo-sel{border:1px solid #d1d5db;padding:6px 10px;font-size:12px;background:#fff;font-family:'DM Sans',sans-serif;width:100%}
+        .type-badge{font-size:11px;padding:3px 8px;font-weight:600;white-space:nowrap}
+        .type-existing{background:#f0fdf4;color:#166534}
+        .type-new{background:#fff9e6;color:#854d0e}
+        #uploadSection{display:none}
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="brand-badge">Tyroo<span style="font-weight:300;margin:0 3px">|</span>CJ</div>
+    <h1>Data Admin</h1>
+    <p class="subtitle">Secure Upload Console</p>
+
+    <div id="loginSection">
+        <div class="field">
+            <label>Access Password</label>
+            <input type="password" id="passwordInput" placeholder="Enter password" autocomplete="off">
+        </div>
+        <button class="btn" onclick="handleLogin()">Unlock Console</button>
+        <div id="loginStatus" class="status"></div>
+    </div>
+
+    <div id="uploadSection">
+        <div class="field">
+            <label>Gross CSV (Tableau Export)</label>
+            <input type="file" id="grossFile" accept=".csv,.txt">
+        </div>
+        <div class="field">
+            <label>Net CSV (Tableau Export)</label>
+            <input type="file" id="netFile" accept=".csv,.txt">
+        </div>
+        <button class="btn" id="parseBtn" onclick="handleParse()">Parse CSVs</button>
+
+        <!-- Unmapped accounts — shown after parse, before push -->
+        <div id="unmappedPanel">
+            <div class="unmapped-header">⚠ Unknown accounts found — assign Geo before pushing. Type is auto-determined by first-seen date (before Jan 2026 = Existing).</div>
+            <div id="unmappedList"></div>
+            <button class="btn" id="pushBtn" onclick="handlePush()" style="margin-top:16px">Push to GitHub</button>
+        </div>
+
+        <div id="uploadStatus" class="status"></div>
+        <div id="uploadLog" class="log"></div>
+
+        <hr>
+        <button class="btn btn-sec" onclick="loadCurrentStatus()">Refresh DB Status</button>
+        <div id="statGrid" class="stat-grid" style="display:none"></div>
+        <hr>
+        <p class="note">Uploads are <strong>additive</strong> — existing dates are never overwritten (posting date basis). New account Geo assignments are saved permanently.</p>
+    </div>
+</div>
+
+<script>
+const GITHUB_OWNER = 'TyrooCJ';
+const GITHUB_REPO  = 'Business-Analytics';
+const DATA_FILE    = 'latest.json';
+const BRANCH       = 'main';
+const PAT_PART_A   = 'ghp_1EOuw7phbHNSDd1j2tfy';
+const PAT_PART_B   = 'TfD3rCOinI0oE2Ym';
+const PAT          = PAT_PART_A + PAT_PART_B;
+const PASSWORD     = 'Magic@TyrooCJ';
+
+const MONTH_SHORT = {'January':'Jan','February':'Feb','March':'Mar','April':'Apr','May':'May','June':'Jun','July':'Jul','August':'Aug','September':'Sep','October':'Oct','November':'Nov','December':'Dec'};
+const GEO_OPTIONS = ['China','India','SEA','Korea','Vietnam','US BD','APAC - Others'];
+
+// Master CID map from your master sheet — source of truth
+const MASTER_CID_MAP = {"5960888": {"Geo": "India", "Type": "Existing Book", "Name": "Puma"}, "6884817": {"Geo": "US BD", "Type": "Existing Book", "Name": "AccorPlus"}, "2612819": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Hotels.com APAC"}, "2683708": {"Geo": "China", "Type": "Existing Book", "Name": "LightInTheBox"}, "2997613": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "HotelsCombined"}, "3412625": {"Geo": "SEA", "Type": "Existing Book", "Name": "Accorhotels.com Asia Paci"}, "3773223": {"Geo": "China", "Type": "Existing Book", "Name": "Shein AMF"}, "4386835": {"Geo": "SEA", "Type": "Existing Book", "Name": "InterContinental Hotels Group"}, "4390377": {"Geo": "China", "Type": "Existing Book", "Name": "IHG Greater China"}, "4699387": {"Geo": "China", "Type": "Existing Book", "Name": "Fairyseason"}, "4777179": {"Geo": "China", "Type": "Existing Book", "Name": "Zaful"}, "4854093": {"Geo": "China", "Type": "Existing Book", "Name": "Bellelily"}, "4956136": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "HomeAway Australia"}, "5002800": {"Geo": "SEA", "Type": "Existing Book", "Name": "Cookly.me"}, "5074754": {"Geo": "India", "Type": "Existing Book", "Name": "Edureka"}, "5139516": {"Geo": "SEA", "Type": "Existing Book", "Name": "Klook"}, "5149517": {"Geo": "China", "Type": "Existing Book", "Name": "Eufy"}, "5270097": {"Geo": "SEA", "Type": "Existing Book", "Name": "Dell Home & Small Busines"}, "5270098": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Dell Home & Small Busines"}, "5325775": {"Geo": "Korea", "Type": "Existing Book", "Name": "Rimowa JP"}, "5363732": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Google Store APAC"}, "5432429": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Dell Consumer Malaysia"}, "5432431": {"Geo": "SEA", "Type": "Existing Book", "Name": "Dell Consumer Singapore"}, "5521282": {"Geo": "India", "Type": "Existing Book", "Name": "Dell Small Business - Ind"}, "5756595": {"Geo": "Korea", "Type": "Existing Book", "Name": "Rimowa APAC"}, "5765586": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Rimowa AU"}, "5884511": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "DESIGUAL JAPAN"}, "6067712": {"Geo": "China", "Type": "Existing Book", "Name": "Beauty Forever"}, "6081048": {"Geo": "China", "Type": "Existing Book", "Name": "Glamermaid"}, "6094901": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "WES (World Eduation Services)"}, "6103169": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Kayak Software Corporation"}, "6103170": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Kayak Software Corporation"}, "6103196": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Kayak Software Corporation"}, "6109855": {"Geo": "China", "Type": "Existing Book", "Name": "iWALK"}, "6116651": {"Geo": "China", "Type": "Existing Book", "Name": "Klaiyi Hair"}, "6163733": {"Geo": "China", "Type": "Existing Book", "Name": "myChway Beauty Tools"}, "6216442": {"Geo": "China", "Type": "Existing Book", "Name": "Bluu"}, "6229571": {"Geo": "China", "Type": "Existing Book", "Name": "Julia Hair"}, "6252772": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Beauty Ninja - Skincare &"}, "6316298": {"Geo": "China", "Type": "Existing Book", "Name": "Phrozen Affiliate Program"}, "6379996": {"Geo": "India", "Type": "Existing Book", "Name": "GIVA"}, "7182748": {"Geo": "China", "Type": "Existing Book", "Name": "Aiper AU"}, "6424481": {"Geo": "China", "Type": "Existing Book", "Name": "Lifesight"}, "6432689": {"Geo": "India", "Type": "Existing Book", "Name": "Angara"}, "6463114": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Luksusbaby"}, "6493540": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Flock FZ LLC DMCC"}, "6584182": {"Geo": "China", "Type": "Existing Book", "Name": "HONGKONG DYU TECHNOLOGY L"}, "6685106": {"Geo": "China", "Type": "Existing Book", "Name": "Renogy"}, "6864832": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Lazada MY"}, "6937741": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Western Union Financial Services, Inc"}, "7022960": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Octa Markets LTD"}, "7052001": {"Geo": "Vietnam", "Type": "Existing Book", "Name": "Gossby - DLS"}, "7054649": {"Geo": "Vietnam", "Type": "Existing Book", "Name": "Unifury"}, "7133231": {"Geo": "SEA", "Type": "Existing Book", "Name": "Ollie"}, "7185453": {"Geo": "Vietnam", "Type": "Existing Book", "Name": "Wander Prints"}, "7318529": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "APAC - GCash - CPL - 2024"}, "7385563": {"Geo": "China", "Type": "Existing Book", "Name": "Popilush US"}, "7447711": {"Geo": "SEA", "Type": "Existing Book", "Name": "APACLG_Tyroo_Mastercard_M"}, "7462051": {"Geo": "SEA", "Type": "Existing Book", "Name": "Crocs HK"}, "7462074": {"Geo": "SEA", "Type": "Existing Book", "Name": "Teva HK"}, "7613147": {"Geo": "SEA", "Type": "Existing Book", "Name": "Qube Smart B2B LeadGen"}, "5610532": {"Geo": "China", "Type": "New Book", "Name": "ZeBrand"}, "5913107": {"Geo": "Korea", "Type": "Existing Book", "Name": "Babybjorn Korea"}, "6103168": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Kayak Software Corporation"}, "6103173": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Kayak Software Corporation"}, "7819955": {"Geo": "India", "Type": "New Book", "Name": "VIP Cars_Global"}, "7819130": {"Geo": "SEA", "Type": "New Book", "Name": "Stylevana Affiliate Progr"}, "7624468": {"Geo": "India", "Type": "New Book", "Name": "OYO USA"}, "7850276": {"Geo": "India", "Type": "New Book", "Name": "Driffle INC"}, "7624978": {"Geo": "India", "Type": "New Book", "Name": "OYO OVH Belvilla"}, "5101835": {"Geo": "SEA", "Type": "Existing Book", "Name": "MegaZip"}, "5611471": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Bose APAC"}, "7641772": {"Geo": "China", "Type": "Existing Book", "Name": "Baseus EU and UK Amazon M"}, "7641760": {"Geo": "China", "Type": "Existing Book", "Name": "Baseus US Amazon Marketpl"}, "6342639": {"Geo": "China", "Type": "Existing Book", "Name": "Vantrue"}, "6045815": {"Geo": "China", "Type": "Existing Book", "Name": "Hohem"}, "6174183": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "K7 Antivirus"}, "6273488": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Clearly AUS"}, "7087880": {"Geo": "China", "Type": "Existing Book", "Name": "Temu APAC"}, "5966498": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Western Digital APAC"}, "5313197": {"Geo": "China", "Type": "Existing Book", "Name": "ITEAD"}, "7185601": {"Geo": "China", "Type": "Existing Book", "Name": "Sunber Hair"}, "5422087": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Clip Studio Paint"}, "5906858": {"Geo": "Korea", "Type": "Existing Book", "Name": "Babybjorn SEAP"}, "6582116": {"Geo": "China", "Type": "Existing Book", "Name": "Funny Fuzzy"}, "6053590": {"Geo": "China", "Type": "Existing Book", "Name": "Nadula Hair"}, "6100283": {"Geo": "China", "Type": "Existing Book", "Name": "Roborock Affiliate Progra"}, "6175973": {"Geo": "China", "Type": "Existing Book", "Name": "EcoFlow UK"}, "5221082": {"Geo": "India", "Type": "Existing Book", "Name": "Stellar"}, "5197358": {"Geo": "China", "Type": "Existing Book", "Name": "Tenorshare/PassFab"}, "5485604": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Tokyo Treat"}, "7804601": {"Geo": "China", "Type": "New Book", "Name": "GearUP"}, "6242886": {"Geo": "China", "Type": "Existing Book", "Name": "VIVIDSTORM Projection Scr"}, "7529241": {"Geo": "China", "Type": "Existing Book", "Name": "Aomei"}, "7432145": {"Geo": "Korea", "Type": "Existing Book", "Name": "Wish Trend"}, "7504299": {"Geo": "China", "Type": "Existing Book", "Name": "Safeshell"}, "7568188": {"Geo": "China", "Type": "Existing Book", "Name": "TCL homesecurity"}, "7721650": {"Geo": "SEA", "Type": "Existing Book", "Name": "Billstone"}, "7892263": {"Geo": "China", "Type": "New Book", "Name": "kaerworld"}, "7207881": {"Geo": "China", "Type": "Existing Book", "Name": "Urban Revivo"}, "7696308": {"Geo": "China", "Type": "Existing Book", "Name": "Panda Office Limited"}, "7493867": {"Geo": "China", "Type": "Existing Book", "Name": "Vevor AU/CA/UK/MX"}, "7603322": {"Geo": "China", "Type": "Existing Book", "Name": "Imobie"}, "5683510": {"Geo": "China", "Type": "Existing Book", "Name": "VideoProc Affiliate Progr"}, "5594555": {"Geo": "China", "Type": "Existing Book", "Name": "Modelones.com"}, "7883485": {"Geo": "China", "Type": "New Book", "Name": "Honey Play Box"}, "5306197": {"Geo": "China", "Type": "Existing Book", "Name": "PureVPN Affiliate Program"}, "7582444": {"Geo": "China", "Type": "Existing Book", "Name": "Bc Babycare"}, "3387283": {"Geo": "China", "Type": "Existing Book", "Name": "GeekBuying"}, "6385512": {"Geo": "China", "Type": "Existing Book", "Name": "Fanka INT"}, "7633156": {"Geo": "China", "Type": "Existing Book", "Name": "Meross"}, "6050938": {"Geo": "China", "Type": "Existing Book", "Name": "Vevor FR"}, "7538034": {"Geo": "US BD", "Type": "Existing Book", "Name": "Agoda APAC"}, "7863754": {"Geo": "China", "Type": "New Book", "Name": "FITUEYES"}, "4723933": {"Geo": "China", "Type": "Existing Book", "Name": "PatPat"}, "4794533": {"Geo": "India", "Type": "Existing Book", "Name": "ExpertRating"}, "5306164": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "McAfee APAC"}, "7726106": {"Geo": "Korea", "Type": "Existing Book", "Name": "d'Alba Amazon Marketplace"}, "5484692": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Oakley AUS"}, "6318041": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Paula's Choice Australia"}, "7845357": {"Geo": "China", "Type": "New Book", "Name": "LILYSILK"}, "7685296": {"Geo": "Korea", "Type": "Existing Book", "Name": "Mary&May-Amazon Marketpla"}, "4295086": {"Geo": "China", "Type": "Existing Book", "Name": "PandaHall"}, "7711902": {"Geo": "China", "Type": "New Book", "Name": "AliExpress - Global"}, "4498040": {"Geo": "China", "Type": "Existing Book", "Name": "Banggood CJ Affiliate Pro"}, "5484690": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Ray-Ban AUS"}, "7696208": {"Geo": "China", "Type": "Existing Book", "Name": "Lexar - CJ Marketplace"}, "7696220": {"Geo": "China", "Type": "New Book", "Name": "Pexar - Amazon Marketplac"}, "6175965": {"Geo": "China", "Type": "Existing Book", "Name": "EcoFlow CA"}, "7337617": {"Geo": "SEA", "Type": "Existing Book", "Name": "Jetpac Global"}, "7816336": {"Geo": "Korea", "Type": "New Book", "Name": "WADIZ Affiliate KR/JP/US"}, "7839428": {"Geo": "China", "Type": "New Book", "Name": "Amotopart"}, "7884518": {"Geo": "Vietnam", "Type": "New Book", "Name": "SWaddle AN"}, "1097361": {"Geo": "China", "Type": "Existing Book", "Name": "CyberLink"}, "4839834": {"Geo": "China", "Type": "Existing Book", "Name": "Modlily.com"}, "6326546": {"Geo": "China", "Type": "Existing Book", "Name": "Ulike"}, "7423961": {"Geo": "China", "Type": "Existing Book", "Name": "Fanttik"}, "5484691": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Sunglass Hut AUS"}, "7319897": {"Geo": "Vietnam", "Type": "Existing Book", "Name": "CompoundX E-Commercer Lim"}, "7824417": {"Geo": "China", "Type": "New Book", "Name": "Mowrator"}, "7614828": {"Geo": "SEA", "Type": "Existing Book", "Name": "Auras Insurance"}, "7427803": {"Geo": "SEA", "Type": "Existing Book", "Name": "PLDT Home"}, "6387385": {"Geo": "China", "Type": "Existing Book", "Name": "BloomChic"}, "6325655": {"Geo": "China", "Type": "Existing Book", "Name": "Luvme Hair"}, "7344620": {"Geo": "India", "Type": "Existing Book", "Name": "HP India"}, "7008093": {"Geo": "India", "Type": "Existing Book", "Name": "Air India"}, "6123342": {"Geo": "China", "Type": "Existing Book", "Name": "EcoFlow EU"}, "7636568": {"Geo": "China", "Type": "Existing Book", "Name": "Coofandy"}, "6191107": {"Geo": "China", "Type": "Existing Book", "Name": "Bluetti Global"}, "5824323": {"Geo": "China", "Type": "Existing Book", "Name": "UNice"}, "6213251": {"Geo": "SEA", "Type": "Existing Book", "Name": "Creation Watches"}, "6305416": {"Geo": "China", "Type": "Existing Book", "Name": "Halara"}, "7662403": {"Geo": "SEA", "Type": "Existing Book", "Name": "Malaysia Airlines"}, "7342799": {"Geo": "US BD", "Type": "Existing Book", "Name": "Premier Farnell Japan"}, "6668575": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Havaianas"}, "5815804": {"Geo": "China", "Type": "Existing Book", "Name": "EcoFlow"}, "7468134": {"Geo": "Korea", "Type": "Existing Book", "Name": "Amorepacific"}, "7686542": {"Geo": "China", "Type": "Existing Book", "Name": "KSP Performance"}, "3940130": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "SmartBuyGlasses"}, "6404897": {"Geo": "China", "Type": "Existing Book", "Name": "Aiper"}, "3194603": {"Geo": "China", "Type": "Existing Book", "Name": "Wondershare"}, "5966681": {"Geo": "China", "Type": "Existing Book", "Name": "Vevor"}, "5261735": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Google Workspace APAC"}, "5521273": {"Geo": "India", "Type": "Existing Book", "Name": "Dell Consumer - India"}, "6164489": {"Geo": "China", "Type": "Existing Book", "Name": "EaseUS"}, "4956152": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Autodesk Asia Pacific"}, "7461882": {"Geo": "China", "Type": "Existing Book", "Name": "Dreame US"}, "7110677": {"Geo": "Vietnam", "Type": "Existing Book", "Name": "Macorner - DZT"}, "5599987": {"Geo": "China", "Type": "Existing Book", "Name": "Vivaia INT"}, "6005268": {"Geo": "China", "Type": "Existing Book", "Name": "Cupshe US"}, "6642029": {"Geo": "APAC - Others", "Type": "Existing Book", "Name": "Dell Global BV"}, "4368684": {"Geo": "SEA", "Type": "Existing Book", "Name": "Trip.com (Global)"}, "7443634": {"Geo": "China", "Type": "Existing Book", "Name": "Jackery"}, "7134757": {"Geo": "Korea", "Type": "Existing Book", "Name": "Adidas Korea"}};
+
+// State
+let parsedGross = null;
+let parsedNet   = null;
+let currentDB   = null;
+let currentSHA  = null;
+
+// ── LOGIN ──────────────────────────────────────────────────
+document.getElementById('passwordInput').addEventListener('keydown', e => { if(e.key==='Enter') handleLogin(); });
+
+function handleLogin() {
+    if (document.getElementById('passwordInput').value === PASSWORD) {
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('uploadSection').style.display = 'block';
+        loadCurrentStatus();
+    } else {
+        const s = document.getElementById('loginStatus');
+        s.className = 'status error'; s.textContent = 'Incorrect password.';
+    }
+}
+
+// ── DATE UTILS ─────────────────────────────────────────────
+function csvDateToKey(dateStr) {
+    const p = String(dateStr).trim().split(' ');
+    if (p.length !== 3) return null;
+    const month = MONTH_SHORT[p[1]];
+    if (!month) return null;
+    return `${p[0]}-${month}-${p[2].slice(-2)}`;
+}
+
+function dateKeyToDate(k) {
+    const m = String(k).match(/^(\d{1,2})-([a-zA-Z]{3})-(\d{2,4})$/);
+    if (!m) return null;
+    let [,d,mon,y] = m; if(y.length===2) y='20'+y;
+    return new Date(`${mon} ${d}, ${y}`);
+}
+
+const JAN_2026 = new Date('2026-01-01');
+function inferType(cidDates) {
+    // Find earliest date across all dateKeys for this CID
+    const dates = Object.keys(cidDates).map(dateKeyToDate).filter(Boolean);
+    if (!dates.length) return 'Existing Book';
+    const earliest = new Date(Math.min(...dates.map(d=>d.getTime())));
+    return earliest < JAN_2026 ? 'Existing Book' : 'New Book';
+}
+
+// ── CSV PARSER ─────────────────────────────────────────────
+function parseTableauCSV(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            let text = e.target.result;
+            if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+            Papa.parse(text, { delimiter:'\t', skipEmptyLines:false, complete:r=>resolve(r.data), error:reject });
+        };
+        reader.readAsText(file, 'UTF-16LE');
+    });
+}
+
+function extractDailyValues(matrix) {
+    if (!matrix || matrix.length < 2) return {};
+    const headerRow = matrix[1];
+    const colDateMap = {};
+    for (let j = 3; j < headerRow.length; j++) {
+        const cell = String(headerRow[j]||'').trim();
+        if (!cell || cell==='nan') continue;
+        const key = csvDateToKey(cell);
+        if (key) colDateMap[j] = key;
+    }
+    const records = {};
+    for (let i = 2; i < matrix.length; i++) {
+        const row = matrix[i];
+        if (!row || !row[0]) continue;
+        const rawAcc = String(row[0]).trim();
+        if (!rawAcc || rawAcc.toLowerCase().includes('total')) continue;
+        const cidMatch = rawAcc.match(/^(\d{4,9})\s*\|/);
+        if (!cidMatch) continue;
+        const cid = cidMatch[1];
+        if (!records[cid]) records[cid] = {};
+        for (const [j, dateKey] of Object.entries(colDateMap)) {
+            const raw = String(row[j]||'').trim();
+            if (!raw || raw==='NaN'||raw==='nan') continue;
+            const val = parseFloat(raw.replace(/,/g,''));
+            if (!isNaN(val) && val !== 0) records[cid][dateKey] = val;
+        }
+    }
+    return records;
+}
+
+// ── STEP 1: PARSE ──────────────────────────────────────────
+async function handleParse() {
+    const grossFile = document.getElementById('grossFile').files[0];
+    const netFile   = document.getElementById('netFile').files[0];
+    const statusEl  = document.getElementById('uploadStatus');
+    const logEl     = document.getElementById('uploadLog');
+
+    if (!grossFile || !netFile) {
+        statusEl.className='status error'; statusEl.textContent='Select both CSV files first.'; return;
+    }
+
+    document.getElementById('parseBtn').disabled = true;
+    document.getElementById('parseBtn').textContent = 'Parsing...';
+    logEl.className = 'log visible'; logEl.innerHTML = '';
+    statusEl.className = 'status info'; statusEl.textContent = 'Parsing CSVs...';
+
+    const log = msg => { logEl.innerHTML += msg + '<br>'; logEl.scrollTop = logEl.scrollHeight; };
+
+    try {
+        log('📂 Parsing Gross CSV...');
+        const gMatrix = await parseTableauCSV(grossFile);
+        log('📂 Parsing Net CSV...');
+        const nMatrix = await parseTableauCSV(netFile);
+
+        parsedGross = extractDailyValues(gMatrix);
+        parsedNet   = extractDailyValues(nMatrix);
+        log(`✓ Gross: ${Object.keys(parsedGross).length} accounts`);
+        log(`✓ Net: ${Object.keys(parsedNet).length} accounts`);
+
+        // Fetch current DB
+        log('📡 Fetching current database...');
+        const result = await fetchCurrentData();
+        currentDB  = result.data;
+        currentSHA = result.sha;
+        log(`✓ DB loaded — ${Object.keys(currentDB.records||{}).length} existing accounts, ${Object.keys(currentDB.userMappings||{}).length} saved mappings`);
+
+        // Find unmapped CIDs — not in MASTER_CID_MAP AND not in saved userMappings
+        const allCIDs = new Set([...Object.keys(parsedGross), ...Object.keys(parsedNet)]);
+        const savedMappings = currentDB.userMappings || {};
+        const unmapped = [];
+
+        for (const cid of allCIDs) {
+            if (MASTER_CID_MAP[cid]) continue;       // Known in master sheet
+            if (savedMappings[cid]) continue;          // Previously assigned by you
+            unmapped.push(cid);
+        }
+
+        log(`✓ Unknown CIDs requiring Geo assignment: ${unmapped.length}`);
+
+        if (unmapped.length > 0) {
+            renderUnmappedPanel(unmapped);
+        } else {
+            // No unknowns — show push button directly
+            document.getElementById('unmappedPanel').style.display = 'block';
+            document.getElementById('unmappedList').innerHTML = '<p style="font-size:13px;color:#5BA976;padding:8px 0">✓ All accounts mapped — no assignments needed.</p>';
+        }
+
+        statusEl.className = 'status info';
+        statusEl.textContent = unmapped.length > 0
+            ? `Found ${unmapped.length} unknown account(s). Assign Geo below, then push.`
+            : 'All accounts mapped. Ready to push.';
+
+    } catch(err) {
+        log(`❌ ${err.message}`);
+        statusEl.className='status error'; statusEl.textContent=`Error: ${err.message}`;
+    }
+    document.getElementById('parseBtn').disabled = false;
+    document.getElementById('parseBtn').textContent = 'Parse CSVs';
+}
+
+// ── RENDER UNMAPPED PANEL ──────────────────────────────────
+function renderUnmappedPanel(cids) {
+    const panel = document.getElementById('unmappedPanel');
+    const list  = document.getElementById('unmappedList');
+    panel.style.display = 'block';
+
+    // Get raw name from CSV matrix (col 0 after CID prefix)
+    const getName = cid => {
+        const keys = Object.keys(parsedNet[cid]||parsedGross[cid]||{});
+        // We don't have the name easily — find it from the last parse
+        // Store it on parsedGross CID entries
+        return `CID ${cid}`;
+    };
+
+    list.innerHTML = cids.map(cid => {
+        // Infer type from first-seen date
+        const allDates = {...(parsedGross[cid]||{}), ...(parsedNet[cid]||{})};
+        const type = inferType(allDates);
+        const typeBadge = type === 'New Book'
+            ? `<span class="type-badge type-new">New Book</span>`
+            : `<span class="type-badge type-existing">Existing Book</span>`;
+        const geoOpts = GEO_OPTIONS.map(g => `<option value="${g}">${g}</option>`).join('');
+        return `<div class="unmapped-row">
+            <div>
+                <div class="unmapped-name">${cid}</div>
+                <div class="unmapped-cid">First seen: ${Object.keys(allDates)[0]||'unknown'} · ${typeBadge}</div>
+            </div>
+            <select class="geo-sel" id="geo_${cid}"><option value="">-- Select Geo --</option>${geoOpts}</select>
+        </div>`;
+    }).join('');
+}
+
+// ── STEP 2: PUSH ──────────────────────────────────────────
+async function handlePush() {
+    const statusEl = document.getElementById('uploadStatus');
+    const logEl    = document.getElementById('uploadLog');
+    const btn      = document.getElementById('pushBtn');
+
+    // Collect geo assignments for unmapped CIDs
+    const selects = document.querySelectorAll('.geo-sel');
+    const newMappings = {};
+    for (const sel of selects) {
+        const cid = sel.id.replace('geo_','');
+        if (!sel.value) {
+            statusEl.className='status error';
+            statusEl.textContent=`Please assign a Geo for CID ${cid} before pushing.`;
+            return;
+        }
+        const allDates = {...(parsedGross[cid]||{}), ...(parsedNet[cid]||{})};
+        const type = inferType(allDates);
+        newMappings[cid] = { Geo: sel.value, Type: type, Name: `Account ${cid}` };
+    }
+
+    btn.disabled = true; btn.textContent = 'Pushing...';
+    logEl.className = 'log visible';
+    statusEl.className = 'status info'; statusEl.textContent = 'Merging and pushing...';
+
+    const log = msg => { logEl.innerHTML += msg + '<br>'; logEl.scrollTop = logEl.scrollHeight; };
+
+    try {
+        // Merge new geo mappings into DB
+        const savedMappings = currentDB.userMappings || {};
+        const allMappings   = { ...savedMappings, ...newMappings };
+        log(`🗺 Saving ${Object.keys(newMappings).length} new Geo assignment(s)`);
+
+        // Merge records
+        const { merged, stats } = mergeRecords(currentDB.records||{}, parsedGross, parsedNet);
+        log(`🔀 Added: ${stats.added} date-entries, Skipped: ${stats.skipped}, New accounts: ${stats.newAccounts}`);
+
+        const payload = {
+            lastUpdated: new Date().toISOString().slice(0,10),
+            userMappings: allMappings,
+            records: merged
+        };
+
+        log('🚀 Committing to GitHub...');
+        await commitData(payload, currentSHA);
+
+        log('✅ Success!');
+        statusEl.className='status success';
+        statusEl.textContent=`✓ Pushed — ${stats.added} new data points added. Dashboard is live.`;
+        btn.textContent = '✓ Done';
+        setTimeout(loadCurrentStatus, 1000);
+
+    } catch(err) {
+        log(`❌ ${err.message}`);
+        statusEl.className='status error'; statusEl.textContent=`Error: ${err.message}`;
+        btn.disabled=false; btn.textContent='Push to GitHub';
+    }
+}
+
+// ── MERGE ──────────────────────────────────────────────────
+function mergeRecords(existing, newGross, newNet) {
+    const merged = JSON.parse(JSON.stringify(existing));
+    let added=0, skipped=0, newAccounts=0;
+    const allCids = new Set([...Object.keys(newGross), ...Object.keys(newNet)]);
+    for (const cid of allCids) {
+        if (!merged[cid]) { merged[cid]={gross:{},net:{}}; newAccounts++; }
+        if (!merged[cid].gross) merged[cid].gross={};
+        if (!merged[cid].net)   merged[cid].net={};
+        for (const [k,v] of Object.entries(newGross[cid]||{})) {
+            if (merged[cid].gross[k]!==undefined) skipped++;
+            else { merged[cid].gross[k]=v; added++; }
+        }
+        for (const [k,v] of Object.entries(newNet[cid]||{})) {
+            if (merged[cid].net[k]!==undefined) skipped++;
+            else { merged[cid].net[k]=v; added++; }
+        }
+    }
+    return { merged, stats:{added, skipped, newAccounts} };
+}
+
+// ── GITHUB API ─────────────────────────────────────────────
+async function fetchCurrentData() {
+    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${DATA_FILE}?ref=${BRANCH}`;
+    const res = await fetch(url, { headers:{'Authorization':`token ${PAT}`,'Accept':'application/vnd.github.v3+json'} });
+    if (!res.ok) throw new Error(`GitHub fetch failed: ${res.status}`);
+    const meta = await res.json();
+    const data = JSON.parse(atob(meta.content.replace(/\n/g,'')));
+    return { data, sha: meta.sha };
+}
+
+async function commitData(newData, sha) {
+    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${DATA_FILE}`;
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(newData,null,2))));
+    const res = await fetch(url, {
+        method:'PUT',
+        headers:{'Authorization':`token ${PAT}`,'Accept':'application/vnd.github.v3+json','Content-Type':'application/json'},
+        body: JSON.stringify({ message:`Data update: ${newData.lastUpdated}`, content, sha, branch:BRANCH })
+    });
+    if (!res.ok) { const e=await res.json(); throw new Error(e.message); }
+}
+
+// ── STATUS ─────────────────────────────────────────────────
+async function loadCurrentStatus() {
+    const grid = document.getElementById('statGrid');
+    grid.style.display='none';
+    try {
+        const { data } = await fetchCurrentData();
+        const records = data.records||{};
+        const cids = Object.keys(records);
+        let tg=0,tn=0;
+        for (const c of cids) { tg+=Object.keys(records[c].gross||{}).length; tn+=Object.keys(records[c].net||{}).length; }
+        grid.style.display='grid';
+        grid.innerHTML=`
+            <div class="stat-box"><div class="sl">Last Upload</div><div class="sv" style="font-size:15px;margin-top:4px">${data.lastUpdated||'—'}</div></div>
+            <div class="stat-box"><div class="sl">Accounts in DB</div><div class="sv">${cids.length}</div></div>
+            <div class="stat-box"><div class="sl">Gross Data Pts</div><div class="sv">${tg.toLocaleString()}</div></div>
+            <div class="stat-box"><div class="sl">Net Data Pts</div><div class="sv">${tn.toLocaleString()}</div></div>
+            <div class="stat-box"><div class="sl">Saved Mappings</div><div class="sv">${Object.keys(data.userMappings||{}).length}</div></div>
+        `;
+    } catch(e) {
+        grid.style.display='grid';
+        grid.innerHTML='<div class="stat-box" style="grid-column:1/-1"><div class="sl">Status</div><div style="font-size:13px;color:#9ca3af;margin-top:4px">Could not load — check PAT</div></div>';
+    }
+}
+</script>
+</body>
+</html>
