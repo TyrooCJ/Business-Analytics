@@ -749,30 +749,14 @@ function toggleBGM(){
 // ── PDF EXPORT ────────────────────────────────────────────────
 // All valid Geo × Book combos. APAC - Others has no New Book.
 const PDF_COMBOS = [
-    { market: 'All',            type: 'All',           label: 'Global Overview — All Books'      },
-    { market: 'All',            type: 'Existing Book', label: 'Global Overview — Existing Book'  },
-    { market: 'All',            type: 'New Book',      label: 'Global Overview — New Book'       },
-    { market: 'China',          type: 'All',           label: 'China — All Books'                },
-    { market: 'China',          type: 'Existing Book', label: 'China — Existing Book'            },
-    { market: 'China',          type: 'New Book',      label: 'China — New Book'                 },
-    { market: 'India',          type: 'All',           label: 'India — All Books'                },
-    { market: 'India',          type: 'Existing Book', label: 'India — Existing Book'            },
-    { market: 'India',          type: 'New Book',      label: 'India — New Book'                 },
-    { market: 'SEA',            type: 'All',           label: 'SEA — All Books'                  },
-    { market: 'SEA',            type: 'Existing Book', label: 'SEA — Existing Book'              },
-    { market: 'SEA',            type: 'New Book',      label: 'SEA — New Book'                   },
-    { market: 'Korea',          type: 'All',           label: 'Korea — All Books'                },
-    { market: 'Korea',          type: 'Existing Book', label: 'Korea — Existing Book'            },
-    { market: 'Korea',          type: 'New Book',      label: 'Korea — New Book'                 },
-    { market: 'Vietnam',        type: 'All',           label: 'Vietnam — All Books'              },
-    { market: 'Vietnam',        type: 'Existing Book', label: 'Vietnam — Existing Book'          },
-    { market: 'Vietnam',        type: 'New Book',      label: 'Vietnam — New Book'               },
-    { market: 'US BD',          type: 'All',           label: 'US BD — All Books'                },
-    { market: 'US BD',          type: 'Existing Book', label: 'US BD — Existing Book'            },
-    { market: 'US BD',          type: 'New Book',      label: 'US BD — New Book'                 },
-    { market: 'APAC - Others',  type: 'All',           label: 'APAC Others — All Books'          },
-    { market: 'APAC - Others',  type: 'Existing Book', label: 'APAC Others — Existing Book'     },
-    // No New Book for APAC - Others
+    { market: 'All',           type: 'All', label: 'Global Overview — All Books' },
+    { market: 'China',         type: 'All', label: 'China — All Books'           },
+    { market: 'India',         type: 'All', label: 'India — All Books'           },
+    { market: 'SEA',           type: 'All', label: 'SEA — All Books'             },
+    { market: 'Korea',         type: 'All', label: 'Korea — All Books'           },
+    { market: 'Vietnam',       type: 'All', label: 'Vietnam — All Books'         },
+    { market: 'US BD',         type: 'All', label: 'US BD — All Books'           },
+    { market: 'APAC - Others', type: 'All', label: 'APAC Others — All Books'    },
 ];
 
 function setProgress(pct, status, combo) {
