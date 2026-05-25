@@ -368,6 +368,9 @@ async function runForecast() {
     if(!DB) await loadData();
 
     const geo=document.getElementById('geoFilter').value;
+    // Sync acct table geo filter with main geo selector
+    const acGeoEl=document.getElementById('acGeo');
+    if(acGeoEl) acGeoEl.value=geo;
     const book=document.getElementById('bookFilter').value;
     const win=parseInt(document.getElementById('windowFilter').value);
 
@@ -394,18 +397,7 @@ async function runForecast() {
     const lyMonth=series.find(s=>s.month===tM&&s.year===tY-1);
     const yoyChange=lyMonth&&lyMonth.value!==0?(res.fc-lyMonth.value)/Math.abs(lyMonth.value):null;
 
-    // Geo breakdowns
-    const geoBreaks=[];
-    if(geo==='All'){
-      for(const g of ['China','India','SEA','Korea','Vietnam','US BD','APAC - Others']){
-        const gc=getCIDs(g,book); if(!gc.length) continue;
-        const {series:gs}=buildSeries(gc,win); if(gs.length<2) continue;
-        const gf=forecast(gs,tM); if(!gf) continue;
-        const gLast=gs[gs.length-1];
-        const gMom=gLast&&gLast.value!==0?(gf.fc-gLast.value)/Math.abs(gLast.value):null;
-        geoBreaks.push({geo:g,fc:Math.max(0,gf.fc),regime:gf.regime,conf:gf.conf,mom:gMom});
-      }
-    }
+    // Geo breakdowns removed — account table handles geo filtering
 
     // Account forecasts
     const acctFc=[];
@@ -420,7 +412,7 @@ async function runForecast() {
     acctFc.sort((a,b)=>b.fc-a.fc);
 
     status('');
-    render({res,series,tM,tY,tgtLabel,curMonth,momChange,yoyChange,lyMonth,geoBreaks,acctFc,nP,nG,nD,nT,win,maxM,maxY});
+    render({res,series,tM,tY,tgtLabel,curMonth,momChange,yoyChange,lyMonth,acctFc,nP,nG,nD,nT,win,maxM,maxY});
 
   } catch(e) {
     status('Error: '+e.message,true);
@@ -430,7 +422,7 @@ async function runForecast() {
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
-function render({res,series,tM,tY,tgtLabel,curMonth,momChange,yoyChange,lyMonth,geoBreaks,acctFc,nP,nG,nD,nT,win,maxM,maxY}) {
+function render({res,series,tM,tY,tgtLabel,curMonth,momChange,yoyChange,lyMonth,acctFc,nP,nG,nD,nT,win,maxM,maxY}) {
   const rLbl=res.regime.charAt(0).toUpperCase()+res.regime.slice(1);
 
   // Hero
@@ -482,27 +474,8 @@ function render({res,series,tM,tY,tgtLabel,curMonth,momChange,yoyChange,lyMonth,
     <span style="color:#6E1B35;font-weight:700">■</span> Decline: ${nD}
   </div>`;
 
-  // Geo table
-  const geoRows=geoBreaks.sort((a,b)=>b.fc-a.fc).map(g=>`<tr>
-    <td><span class="dot" style="background:${GEO_COLORS[g.geo]||'#9ca3af'}"></span>${g.geo}</td>
-    <td class="tnum">${fmtK(g.fc)}</td>
-    <td>${g.mom!==null?dUp(g.mom):'—'}</td>
-    <td><span class="pill pill-${g.regime}">${g.regime}</span></td>
-    <td class="tnum">${(g.conf*100).toFixed(0)}%</td>
-    <td class="tnum">${res.fc>0?(g.fc/res.fc*100).toFixed(1)+'%':'—'}</td>
-  </tr>`).join('');
-
-  // Account table
-  const acctRows=acctFc.slice(0,15).map((a,i)=>{
-    const pCls=a.mom===null?'pill-neu':a.mom>0.05?'pill-up':a.mom<-0.05?'pill-dn':'pill-neu';
-    return `<tr>
-      <td>${i+1}. ${a.name.slice(0,28)}</td>
-      <td><span class="dot" style="background:${GEO_COLORS[a.geo]||'#9ca3af'}"></span>${a.geo}</td>
-      <td class="tnum">${fmtK(a.fc)}</td>
-      <td class="tnum">${a.last?fmtK(a.last.value):'—'}</td>
-      <td><span class="pill ${pCls}">${a.mom!==null?fmtPct(a.mom):'—'}</span></td>
-      <td><span class="pill pill-${a.regime}">${a.regime}</span></td>
-    </tr>`;}).join('');
+  // Account table — all accounts, stored in window for filter/search
+  window._acctFc = acctFc;
 
   // Chart
   const labels=series.map(s=>`${MONTH_SHORT[s.month]} '${String(s.year).slice(-2)}`);
@@ -530,18 +503,61 @@ function render({res,series,tM,tY,tgtLabel,curMonth,momChange,yoyChange,lyMonth,
       <div class="chart-wrap"><canvas id="fc-chart"></canvas></div>
     </div>
   </div>
-  ${geoBreaks.length?`
-  <div class="card fade">
-    <div class="card-title">Geo Breakdown</div>
-    <div class="card-sub">Per-market forecast · ${tgtLabel}</div>
-    <table><thead><tr><th style="text-align:left">Market</th><th>Forecast</th><th>vs May Proj</th><th>Regime</th><th>Confidence</th><th>Share</th></tr></thead>
-    <tbody>${geoRows}</tbody></table>
-  </div>`:''}
-  <div class="card fade">
-    <div class="card-title">Top Accounts — Forecast Ranking</div>
-    <div class="card-sub">Sorted by projected ${tgtLabel} net fee · Top 15</div>
-    <table><thead><tr><th style="text-align:left">Account</th><th style="text-align:left">Geo</th><th>Forecast</th><th>Last Actual</th><th>MoM</th><th>Regime</th></tr></thead>
-    <tbody>${acctRows}</tbody></table>
+  <div class="card fade" id="acctCard">
+    <div class="card-title">Account Forecast</div>
+    <div class="card-sub">Projected ${tgtLabel} net fee · all accounts</div>
+    <!-- Controls -->
+    <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#6b7280;margin-bottom:4px">Search</div>
+        <input id="acSearch" type="text" placeholder="Account name…" oninput="renderAcctTable()"
+          style="border:1px solid #e5e7eb;padding:6px 12px;font-size:13px;font-family:'DM Sans',sans-serif;width:200px;outline:none">
+      </div>
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#6b7280;margin-bottom:4px">Geo</div>
+        <select id="acGeo" onchange="renderAcctTable()"
+          style="border:1px solid #e5e7eb;padding:6px 12px;font-size:13px;font-family:'DM Sans',sans-serif;background:#FAFAF7;outline:none">
+          <option value="All">All Geos</option>
+          <option value="China">China</option>
+          <option value="India">India</option>
+          <option value="SEA">SEA</option>
+          <option value="Korea">Korea</option>
+          <option value="Vietnam">Vietnam</option>
+          <option value="US BD">US BD</option>
+          <option value="APAC - Others">APAC - Others</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#6b7280;margin-bottom:4px">Regime</div>
+        <select id="acRegime" onchange="renderAcctTable()"
+          style="border:1px solid #e5e7eb;padding:6px 12px;font-size:13px;font-family:'DM Sans',sans-serif;background:#FAFAF7;outline:none">
+          <option value="All">All Regimes</option>
+          <option value="growth">Growth</option>
+          <option value="plateau">Plateau</option>
+          <option value="decline">Decline</option>
+        </select>
+      </div>
+      <div style="margin-left:auto;text-align:right">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#6b7280;margin-bottom:4px">Subtotal</div>
+        <div id="acSubtotal" style="font-family:'Fraunces',serif;font-size:22px;color:#191919"></div>
+        <div id="acCount" style="font-size:11px;color:#9ca3af;margin-top:2px"></div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;max-height:520px;overflow-y:auto">
+      <table id="acctTable" style="width:100%;border-collapse:collapse;font-size:13px;min-width:600px">
+        <thead style="position:sticky;top:0;z-index:5;background:#f9fafb;border-bottom:2px solid #191919">
+          <tr>
+            <th onclick="sortAcct('name')" style="text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#6b7280;cursor:pointer;white-space:nowrap">Account ↕</th>
+            <th onclick="sortAcct('geo')" style="text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#6b7280;cursor:pointer;white-space:nowrap">Geo ↕</th>
+            <th onclick="sortAcct('fc')" style="text-align:right;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#6b7280;cursor:pointer;white-space:nowrap">Forecast ↕</th>
+            <th style="text-align:right;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#6b7280;white-space:nowrap">Last Actual</th>
+            <th onclick="sortAcct('mom')" style="text-align:right;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#6b7280;cursor:pointer;white-space:nowrap">MoM ↕</th>
+            <th style="text-align:right;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#6b7280;white-space:nowrap">Regime</th>
+          </tr>
+        </thead>
+        <tbody id="acctBody"></tbody>
+      </table>
+    </div>
   </div>
   <div class="card fade">
     <div class="card-title">Methodology</div>
@@ -581,6 +597,8 @@ function render({res,series,tM,tY,tgtLabel,curMonth,momChange,yoyChange,lyMonth,
       scales:{x:{grid:{display:false},ticks:{maxTicksLimit:14,font:{size:10}}},y:{grid:{color:'#e5e7eb'},ticks:{callback:v=>fmtK(v),font:{size:10}}}}
     }});
   });
+  // Populate account table after DOM is ready
+  setTimeout(renderAcctTable, 50);
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
@@ -593,6 +611,62 @@ function render({res,series,tM,tY,tgtLabel,curMonth,momChange,yoyChange,lyMonth,
     status('Could not load data: '+e.message,true);
   }
 })();
+// ── ACCOUNT TABLE ─────────────────────────────────────────────────────────────
+let _acctSort = {col:'fc', dir:'desc'};
+
+function sortAcct(col) {
+  if (_acctSort.col === col) _acctSort.dir = _acctSort.dir === 'asc' ? 'desc' : 'asc';
+  else { _acctSort.col = col; _acctSort.dir = col === 'name' || col === 'geo' ? 'asc' : 'desc'; }
+  renderAcctTable();
+}
+
+function renderAcctTable() {
+  const data = window._acctFc;
+  if (!data) return;
+  const search  = (document.getElementById('acSearch')?.value  || '').toLowerCase();
+  const geoF    =  document.getElementById('acGeo')?.value    || 'All';
+  const regimeF =  document.getElementById('acRegime')?.value || 'All';
+
+  let rows = data.filter(a => {
+    if (geoF    !== 'All' && a.geo    !== geoF)    return false;
+    if (regimeF !== 'All' && a.regime !== regimeF)  return false;
+    if (search  && !a.name.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  // Sort
+  rows.sort((a,b) => {
+    let av, bv;
+    if      (_acctSort.col === 'name') { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
+    else if (_acctSort.col === 'geo')  { av = a.geo;                bv = b.geo; }
+    else if (_acctSort.col === 'mom')  { av = a.mom ?? -Infinity;   bv = b.mom ?? -Infinity; }
+    else                               { av = a.fc;                 bv = b.fc; }
+    return _acctSort.dir === 'asc' ? (av < bv ? -1 : av > bv ? 1 : 0) : (bv < av ? -1 : bv > av ? 1 : 0);
+  });
+
+  // Subtotal
+  const subtotal = rows.reduce((s,a) => s + a.fc, 0);
+  document.getElementById('acSubtotal').textContent = fmtK(subtotal);
+  document.getElementById('acCount').textContent    = rows.length + ' accounts';
+
+  const GC = {'China':'#214295','India':'#5BA976','SEA':'#025450','Korea':'#c97e1a','Vietnam':'#3b82f6','US BD':'#6E1B35','APAC - Others':'#6b7280'};
+  const tdS = 'padding:8px 12px;border-bottom:1px solid #f3f4f6;vertical-align:middle';
+
+  document.getElementById('acctBody').innerHTML = rows.map(a => {
+    const pCls = a.mom===null ? 'pill-neu' : a.mom > 0.05 ? 'pill-up' : a.mom < -0.05 ? 'pill-dn' : 'pill-neu';
+    return `<tr style="cursor:default" onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background=''">
+      <td style="${tdS};font-weight:600;text-align:left">${a.name.slice(0,32)}</td>
+      <td style="${tdS};text-align:left;color:#6b7280;font-size:12px">
+        <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${GC[a.geo]||'#9ca3af'};margin-right:6px;vertical-align:middle"></span>${a.geo}
+      </td>
+      <td style="${tdS};text-align:right;font-variant-numeric:tabular-nums;font-weight:600">${fmtK(a.fc)}</td>
+      <td style="${tdS};text-align:right;font-variant-numeric:tabular-nums;color:#6b7280">${a.last ? fmtK(a.last.value) : '—'}</td>
+      <td style="${tdS};text-align:right">${a.mom!==null ? (a.mom>0?`<span class="up">▲ ${fmtPct(a.mom)}</span>`:`<span class="dn">▼ ${fmtPct(a.mom)}</span>`) : '—'}</td>
+      <td style="${tdS};text-align:right"><span class="pill pill-${a.regime}">${a.regime}</span></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" style="text-align:center;padding:32px;color:#9ca3af">No accounts match filters</td></tr>`;
+}
+
 </script>
 </body>
 </html>
