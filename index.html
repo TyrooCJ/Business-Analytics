@@ -203,11 +203,14 @@
         border-right: 1px solid #f3f4f6; white-space: nowrap;
         font-variant-numeric: tabular-nums;
     }
-    #ledgerTable td.sticky-col  { position: sticky; left: 0;     z-index: 1; background: #fff; font-weight: 600; border-right: 2px solid #e5e7eb; }
-    #ledgerTable td.sticky-col2 { position: sticky; left: 160px; z-index: 1; background: #fff; border-right: 1px solid #e5e7eb; }
+    #ledgerTable th.sticky-col3 { position: sticky; left: 250px; z-index: 11; background: #f9fafb; }
+    #ledgerTable td.sticky-col  { position: sticky; left: 0;     z-index: 1; background: #fff; font-weight: 600; border-right: 1px solid #e5e7eb; }
+    #ledgerTable td.sticky-col2 { position: sticky; left: 160px; z-index: 1; background: #fff; border-right: 1px solid #e5e7eb; font-family: 'Courier New', monospace; font-size: 11px; color: #9ca3af; }
+    #ledgerTable td.sticky-col3 { position: sticky; left: 250px; z-index: 1; background: #fff; border-right: 2px solid #e5e7eb; }
     #ledgerTable tr:hover td { background: #f0f9ff !important; }
     #ledgerTable tr:hover td.sticky-col,
-    #ledgerTable tr:hover td.sticky-col2 { background: #e0f2fe !important; }
+    #ledgerTable tr:hover td.sticky-col2,
+    #ledgerTable tr:hover td.sticky-col3 { background: #e0f2fe !important; }
     .ldg-pos { color: #191919; }
     .ldg-neg { color: #6E1B35; }
     .ldg-mtd { background: #eff6ff; font-weight: 600; }
@@ -262,12 +265,19 @@ function buildLedgerData() {
         // Only include if account has any non-zero data in the window
         if (rowVals.every(v => v === 0)) continue;
 
+        // Resolve best available name — userMappings may have a real name saved
+        const resolvedName = (acc.name && !acc.name.startsWith('Account '))
+            ? acc.name
+            : (userMappings[acc.cid] && userMappings[acc.cid].Name && !userMappings[acc.cid].Name.startsWith('Account '))
+                ? userMappings[acc.cid].Name
+                : acc.name;
+
         rows.push({
             cid:  acc.cid,
-            name: acc.name,
+            name: resolvedName,
             geo:  acc.geo,
             type: acc.type,
-            vals: rowVals,   // one value per month column
+            vals: rowVals,
         });
     }
 
@@ -295,16 +305,16 @@ function renderLedger() {
         filtered.sort((a, b) => {
             let av, bv;
             if (ledgerSortCol === 0)      { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
-            else if (ledgerSortCol === 1) { av = a.geo;                bv = b.geo; }
-            else                          { av = a.vals[ledgerSortCol - 2] || 0; bv = b.vals[ledgerSortCol - 2] || 0; }
+            else if (ledgerSortCol === 2) { av = a.geo;                bv = b.geo; }
+            else                          { av = a.vals[ledgerSortCol - 3] || 0; bv = b.vals[ledgerSortCol - 3] || 0; }
             if (av < bv) return ledgerSortDir === 'asc' ? -1 : 1;
             if (av > bv) return ledgerSortDir === 'asc' ? 1 : -1;
             return 0;
         });
     } else {
-        // Default: sort by most recent full month desc
+        // Default: sort by most recent full month desc (second-to-last column value)
         const lastFullIdx = months.length - 2;
-        filtered.sort((a,b) => (b.vals[lastFullIdx]||0) - (a.vals[lastFullIdx]||0));
+        filtered.sort((a,b) => (b.vals[Math.max(0,lastFullIdx)]||0) - (a.vals[Math.max(0,lastFullIdx)]||0));
     }
 
     document.getElementById('ledgerCount').textContent = `${filtered.length} accounts`;
@@ -323,9 +333,11 @@ function renderLedger() {
     const sc0 = ledgerSortCol === 0 ? (ledgerSortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
     const sc1 = ledgerSortCol === 1 ? (ledgerSortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
 
+    const sc2 = ledgerSortCol === 2 ? (ledgerSortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
     document.getElementById('ledgerHead').innerHTML = `<tr>
         <th class="sticky-col ${sc0}" style="min-width:160px;left:0" onclick="sortLedger(0)">Account</th>
-        <th class="sticky-col2 ${sc1}" style="min-width:90px;left:160px" onclick="sortLedger(1)">Geo</th>
+        <th class="sticky-col2" style="min-width:90px;left:160px;cursor:default">CID</th>
+        <th class="sticky-col3 ${sc2}" style="min-width:110px;left:250px" onclick="sortLedger(2)">Geo</th>
         ${headCols}
     </tr>`;
 
@@ -351,7 +363,8 @@ function renderLedger() {
 
         return `<tr>
             <td class="sticky-col" title="${r.name} (${r.cid})">${name}${typeBadge}</td>
-            <td class="sticky-col2" style="color:#6b7280;font-size:11px">${dot}${r.geo}</td>
+            <td class="sticky-col2">${r.cid}</td>
+            <td class="sticky-col3" style="color:#6b7280;font-size:11px">${dot}${r.geo}</td>
             ${cells}
         </tr>`;
     }).join('');
