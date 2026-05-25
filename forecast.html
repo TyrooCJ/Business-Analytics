@@ -1,842 +1,596 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tyroo|CJ — Revenue Forecast</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        :root {
-            --ink:#191919;--bg:#FAFAF7;--blue:#214295;--teal:#025450;
-            --green:#5BA976;--yellow:#FFBE60;--maroon:#6E1B35;--sky:#A6DDEE;--mid:#e5e7eb;--soft:#f3f4f6;
-        }
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;
-            background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");}
-        .tnum{font-feature-settings:"tnum";font-variant-numeric:tabular-nums}
-        header{max-width:1400px;margin:0 auto;padding:32px 32px 24px;display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--ink)}
-        .brand-badge{background:var(--blue);color:#fff;font-weight:700;font-size:16px;padding:3px 8px}
-        .nav-link{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;color:var(--blue);text-decoration:none;border-bottom:1px solid var(--blue);padding-bottom:1px}
-        .nav-link:hover{color:var(--ink);border-color:var(--ink)}
-        h1{font-family:'Fraunces',serif;font-size:38px;font-weight:300;line-height:1}
-        .page-sub{font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:#9ca3af;font-weight:600;margin-top:6px}
-        main{max-width:1400px;margin:0 auto;padding:40px 32px 80px}
-        .controls{display:flex;gap:24px;align-items:flex-end;padding:18px 24px;background:#fff;border:1px solid var(--mid);margin-bottom:40px;flex-wrap:wrap}
-        .ctrl-group{display:flex;flex-direction:column;gap:6px}
-        .ctrl-label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:#6b7280}
-        select{font-family:'DM Sans',sans-serif;font-size:13px;border:1px solid var(--mid);padding:7px 12px;background:var(--bg);color:var(--ink);cursor:pointer;outline:none}
-        select:focus{border-color:var(--blue)}
-        .run-btn{background:var(--blue);color:#fff;border:none;padding:10px 28px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.04em;transition:background .15s;white-space:nowrap}
-        .run-btn:hover{background:var(--ink)}
-        .run-btn:disabled{background:#9ca3af;cursor:not-allowed}
-        #loadingMsg{text-align:center;padding:60px;font-family:'Fraunces',serif;font-size:20px;color:#9ca3af;display:none}
-        .forecast-hero{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1px;background:var(--ink);margin-bottom:40px}
-        .hero-cell{background:var(--bg);padding:28px 24px}
-        .hero-cell.primary{background:var(--blue);color:#fff}
-        .hero-cell.primary .hero-label{color:rgba(255,255,255,.65)}
-        .hero-cell.primary .hero-badge{background:rgba(255,255,255,.15);color:#fff}
-        .hero-label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:#6b7280;margin-bottom:8px}
-        .hero-value{font-family:'Fraunces',serif;font-size:36px;font-weight:300;line-height:1}
-        .hero-sub{font-size:12px;color:#9ca3af;margin-top:6px}
-        .hero-badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;margin-top:10px;text-transform:uppercase;letter-spacing:.08em}
-        .regime-plateau{background:#f0fdf4;color:#166534}
-        .regime-growth{background:#eff6ff;color:#1e40af}
-        .regime-decline{background:#fef2f2;color:#991b1b}
-        .delta-up{color:var(--green);font-weight:600}
-        .delta-dn{color:var(--maroon);font-weight:600}
-        .two-col{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px}
-        .full-col{margin-bottom:32px}
-        .section-card{background:#fff;border:1px solid var(--mid);padding:24px}
-        .section-title{font-family:'Fraunces',serif;font-size:18px;font-weight:400;margin-bottom:4px}
-        .section-sub{font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:20px}
-        /* Regime distribution */
-        .regime-bar-row{display:flex;height:28px;margin-bottom:16px;overflow:hidden;border:1px solid var(--mid)}
-        .regime-seg{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;transition:width .5s ease}
-        /* Method rows */
-        .method-grid{display:flex;flex-direction:column;gap:8px}
-        .method-row{display:grid;grid-template-columns:180px 1fr 80px;align-items:center;gap:12px;padding:10px 14px;background:var(--soft);border-left:3px solid var(--mid)}
-        .method-name{font-size:13px;font-weight:600}
-        .method-desc{font-size:11px;color:#6b7280;margin-top:2px}
-        .method-bar-wrap{height:5px;background:var(--mid);border-radius:2px}
-        .method-bar{height:5px;background:var(--teal);border-radius:2px;transition:width .6s ease}
-        .method-val{font-size:14px;font-weight:600;font-family:'Fraunces',serif;text-align:right}
-        /* Tables */
-        .geo-table,.acct-table{width:100%;border-collapse:collapse;font-size:13px}
-        .geo-table th,.acct-table th{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#6b7280;padding:8px 12px;text-align:right;border-bottom:2px solid var(--ink)}
-        .geo-table th:first-child,.acct-table th:first-child{text-align:left}
-        .geo-table td,.acct-table td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--mid)}
-        .geo-table td:first-child,.acct-table td:first-child{text-align:left;font-weight:600}
-        .geo-table tr:hover td,.acct-table tr:hover td{background:var(--soft)}
-        .pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
-        .pill-up{background:#f0fdf4;color:#166534}
-        .pill-dn{background:#fef2f2;color:#991b1b}
-        .pill-neu{background:var(--soft);color:#374151}
-        .chart-wrap{height:300px;position:relative}
-        .assumption-list{list-style:none;display:flex;flex-direction:column;gap:5px}
-        .assumption-list li{font-size:12px;color:#4b5563;padding:8px 12px;background:var(--soft);border-left:2px solid var(--mid);line-height:1.5}
-        .assumption-list li strong{color:var(--ink)}
-        @media(max-width:900px){.two-col{grid-template-columns:1fr}.forecast-hero{grid-template-columns:1fr 1fr}header{flex-direction:column;align-items:flex-start;gap:16px}}
-        .fade-in{animation:fadeIn .35s ease both}
-        @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tyroo|CJ — Revenue Forecast</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#FAFAF7;color:#191919;min-height:100vh;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E")}
+.tnum{font-feature-settings:"tnum";font-variant-numeric:tabular-nums}
+header{max-width:1400px;margin:0 auto;padding:32px 32px 24px;display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #191919}
+.brand-badge{background:#214295;color:#fff;font-weight:700;font-size:16px;padding:3px 8px}
+h1{font-family:'Fraunces',serif;font-size:38px;font-weight:300;line-height:1;margin-top:6px}
+.page-sub{font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:#9ca3af;font-weight:600;margin-top:6px}
+.nav-link{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;color:#214295;text-decoration:none;border-bottom:1px solid #214295;padding-bottom:1px}
+main{max-width:1400px;margin:0 auto;padding:40px 32px 80px}
+.controls{display:flex;gap:24px;align-items:flex-end;padding:18px 24px;background:#fff;border:1px solid #e5e7eb;margin-bottom:32px;flex-wrap:wrap}
+.ctrl-group{display:flex;flex-direction:column;gap:6px}
+.ctrl-label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:#6b7280}
+select{font-family:'DM Sans',sans-serif;font-size:13px;border:1px solid #e5e7eb;padding:7px 12px;background:#FAFAF7;color:#191919;cursor:pointer;outline:none}
+.run-btn{background:#214295;color:#fff;border:none;padding:10px 28px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s}
+.run-btn:hover{background:#191919}
+.run-btn:disabled{background:#9ca3af;cursor:not-allowed}
+#statusMsg{padding:16px;font-size:14px;font-family:'Fraunces',serif;color:#6b7280;display:none}
+#statusMsg.error{color:#6E1B35;background:#fef2f2;padding:16px;border-left:3px solid #6E1B35}
+.hero{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1px;background:#191919;margin-bottom:32px}
+.hero-cell{background:#FAFAF7;padding:28px 24px}
+.hero-cell.primary{background:#214295;color:#fff}
+.hero-label{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:#6b7280;margin-bottom:8px}
+.hero-cell.primary .hero-label{color:rgba(255,255,255,.6)}
+.hero-val{font-family:'Fraunces',serif;font-size:36px;font-weight:300;line-height:1}
+.hero-sub{font-size:12px;color:#9ca3af;margin-top:6px}
+.hero-cell.primary .hero-sub{color:rgba(255,255,255,.5)}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;margin-top:10px;text-transform:uppercase;letter-spacing:.08em}
+.b-plateau{background:#f0fdf4;color:#166534}
+.b-growth{background:#eff6ff;color:#1e40af}
+.b-decline{background:#fef2f2;color:#991b1b}
+.hero-cell.primary .badge{background:rgba(255,255,255,.15);color:#fff}
+.up{color:#5BA976;font-weight:600}
+.dn{color:#6E1B35;font-weight:600}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px}
+.card{background:#fff;border:1px solid #e5e7eb;padding:24px;margin-bottom:32px}
+.card-title{font-family:'Fraunces',serif;font-size:18px;margin-bottom:4px}
+.card-sub{font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:20px}
+.method-row{display:grid;grid-template-columns:180px 1fr 80px;align-items:center;gap:12px;padding:10px 14px;background:#f3f4f6;margin-bottom:6px}
+.method-name{font-size:13px;font-weight:600}
+.method-desc{font-size:11px;color:#6b7280;margin-top:2px}
+.mbar-wrap{height:5px;background:#e5e7eb;border-radius:2px}
+.mbar{height:5px;background:#025450;border-radius:2px}
+.method-val{font-size:14px;font-weight:600;font-family:'Fraunces',serif;text-align:right}
+.chart-wrap{height:300px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:10px;text-transform:uppercase;letter-spacing:.1em;font-weight:700;color:#6b7280;padding:8px 12px;text-align:right;border-bottom:2px solid #191919;white-space:nowrap}
+th:first-child{text-align:left}
+td{padding:9px 12px;text-align:right;border-bottom:1px solid #f3f4f6}
+td:first-child{text-align:left;font-weight:600}
+tr:hover td{background:#f9fafb}
+.pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
+.pill-up{background:#f0fdf4;color:#166534}
+.pill-dn{background:#fef2f2;color:#991b1b}
+.pill-neu{background:#f3f4f6;color:#374151}
+.pill-plateau{background:#f0fdf4;color:#166534}
+.pill-growth{background:#eff6ff;color:#1e40af}
+.pill-decline{background:#fef2f2;color:#991b1b}
+.regime-bar{display:flex;height:24px;overflow:hidden;border:1px solid #e5e7eb;margin-bottom:12px}
+.regime-seg{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff}
+.assume-list{list-style:none;display:flex;flex-direction:column;gap:5px}
+.assume-list li{font-size:12px;color:#4b5563;padding:8px 12px;background:#f3f4f6;border-left:2px solid #e5e7eb;line-height:1.5}
+.assume-list li strong{color:#191919}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;vertical-align:middle}
+@media(max-width:900px){.two{grid-template-columns:1fr}.hero{grid-template-columns:1fr 1fr}}
+.fade{animation:fadeIn .3s ease both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+</style>
 </head>
 <body>
 <header>
-    <div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-            <div class="brand-badge">Tyroo<span style="font-weight:300;margin:0 3px">|</span>CJ</div>
-        </div>
-        <h1>Revenue Forecast</h1>
-        <p class="page-sub">Regime-aware ensemble · Conservative affiliate model</p>
-    </div>
-    <div style="display:flex;gap:20px;align-items:center">
-        <a class="nav-link" href="index.html">← Dashboard</a>
-        <span id="dataTag" style="font-size:11px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.1em"></span>
-    </div>
+  <div>
+    <div class="brand-badge">Tyroo<span style="font-weight:300;margin:0 3px">|</span>CJ</div>
+    <h1>Revenue Forecast</h1>
+    <p class="page-sub">Regime-aware ensemble · Conservative affiliate model</p>
+  </div>
+  <div style="display:flex;gap:20px;align-items:center">
+    <a class="nav-link" href="index.html">← Dashboard</a>
+    <span id="dataTag" style="font-size:11px;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.1em"></span>
+  </div>
 </header>
 <main>
-    <div class="controls">
-        <div class="ctrl-group">
-            <span class="ctrl-label">Market Segment</span>
-            <select id="geoFilter">
-                <option value="All">Global Portfolio</option>
-                <option value="China">China</option>
-                <option value="India">India</option>
-                <option value="SEA">SEA</option>
-                <option value="Korea">Korea</option>
-                <option value="Vietnam">Vietnam</option>
-                <option value="US BD">US BD</option>
-                <option value="APAC - Others">APAC - Others</option>
-            </select>
-        </div>
-        <div class="ctrl-group">
-            <span class="ctrl-label">Book Scope</span>
-            <select id="bookFilter">
-                <option value="All">All Books</option>
-                <option value="Existing Book">Existing Book</option>
-                <option value="New Book">New Book</option>
-            </select>
-        </div>
-        <div class="ctrl-group">
-            <span class="ctrl-label">History Window</span>
-            <select id="windowFilter">
-                <option value="6">Last 6 months</option>
-                <option value="9">Last 9 months</option>
-                <option value="12" selected>Last 12 months</option>
-                <option value="18">Last 18 months</option>
-            </select>
-        </div>
-        <button class="run-btn" id="runBtn" onclick="runForecast()">Run Forecast</button>
+  <div class="controls">
+    <div class="ctrl-group">
+      <span class="ctrl-label">Market Segment</span>
+      <select id="geoFilter">
+        <option value="All">Global Portfolio</option>
+        <option value="China">China</option>
+        <option value="India">India</option>
+        <option value="SEA">SEA</option>
+        <option value="Korea">Korea</option>
+        <option value="Vietnam">Vietnam</option>
+        <option value="US BD">US BD</option>
+        <option value="APAC - Others">APAC - Others</option>
+      </select>
     </div>
-
-    <div id="loadingMsg">Computing regime-aware forecast…</div>
-    <div id="results" style="display:none"></div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">Book Scope</span>
+      <select id="bookFilter">
+        <option value="All">All Books</option>
+        <option value="Existing Book">Existing Book</option>
+        <option value="New Book">New Book</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">History Window</span>
+      <select id="windowFilter">
+        <option value="6">Last 6 months</option>
+        <option value="9">Last 9 months</option>
+        <option value="12" selected>Last 12 months</option>
+        <option value="18">Last 18 months</option>
+      </select>
+    </div>
+    <button class="run-btn" id="runBtn" onclick="runForecast()">Run Forecast</button>
+  </div>
+  <div id="statusMsg"></div>
+  <div id="results"></div>
 </main>
 
 <script>
-const GITHUB_OWNER='TyrooCJ', GITHUB_REPO='Business-Analytics', DATA_FILE='latest.json', BRANCH='main';
-const BLOCKED_CIDS = new Set(['4386835','4390377']);
-const MONTH_NAMES  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const MONTH_KEY_MAP= {'Jan':0,'Feb':1,'Mar':2,'April':3,'Apr':3,'May':4,'June':5,'Jun':5,'July':6,'Jul':6,'Aug':7,'Sep':8,'Oct':9,'Nov':10,'Dec':11};
-const GEO_COLORS   = {'China':'#214295','India':'#5BA976','SEA':'#025450','Korea':'#c97e1a','Vietnam':'#3b82f6','US BD':'#6E1B35','APAC - Others':'#6b7280'};
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const GH_OWNER='TyrooCJ', GH_REPO='Business-Analytics', GH_FILE='latest.json', GH_BRANCH='main';
+const BLOCKED = new Set(['4386835','4390377']);
+const TRIP_CID = '4368684';
+const TRIP_FACTOR = 0.165;
+const MONTH_NAMES=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTH_SHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const GEO_COLORS={'China':'#214295','India':'#5BA976','SEA':'#025450','Korea':'#c97e1a','Vietnam':'#3b82f6','US BD':'#6E1B35','APAC - Others':'#6b7280'};
+const MK_MAP={'Jan':0,'Feb':1,'Mar':2,'April':3,'Apr':3,'May':4,'June':5,'Jun':5,'July':6,'Jul':6,'Aug':7,'Sep':8,'Oct':9,'Nov':10,'Dec':11};
 
-const cidGeoMap = {"5960888":{"Geo":"India","Type":"Existing Book","Name":"Puma"},"6884817":{"Geo":"US BD","Type":"Existing Book","Name":"AccorPlus"},"2612819":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Hotels.com APAC"},"2683708":{"Geo":"China","Type":"Existing Book","Name":"LightInTheBox"},"2997613":{"Geo":"APAC - Others","Type":"Existing Book","Name":"HotelsCombined"},"3412625":{"Geo":"SEA","Type":"Existing Book","Name":"Accorhotels.com Asia Paci"},"3773223":{"Geo":"China","Type":"Existing Book","Name":"Shein AMF"},"4699387":{"Geo":"China","Type":"Existing Book","Name":"Fairyseason"},"4777179":{"Geo":"China","Type":"Existing Book","Name":"Zaful"},"4854093":{"Geo":"China","Type":"Existing Book","Name":"Bellelily"},"4956136":{"Geo":"APAC - Others","Type":"Existing Book","Name":"HomeAway Australia"},"5002800":{"Geo":"SEA","Type":"Existing Book","Name":"Cookly.me"},"5074754":{"Geo":"India","Type":"Existing Book","Name":"Edureka"},"5139516":{"Geo":"SEA","Type":"Existing Book","Name":"Klook"},"5149517":{"Geo":"China","Type":"Existing Book","Name":"Eufy"},"5270097":{"Geo":"SEA","Type":"Existing Book","Name":"Dell Home & Small Busines"},"5270098":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Dell Home & Small Busines"},"5325775":{"Geo":"Korea","Type":"Existing Book","Name":"Rimowa JP"},"5363732":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Google Store APAC"},"5432429":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Dell Consumer Malaysia"},"5432431":{"Geo":"SEA","Type":"Existing Book","Name":"Dell Consumer Singapore"},"5521282":{"Geo":"India","Type":"Existing Book","Name":"Dell Small Business - Ind"},"5756595":{"Geo":"Korea","Type":"Existing Book","Name":"Rimowa APAC"},"5765586":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Rimowa AU"},"5884511":{"Geo":"APAC - Others","Type":"Existing Book","Name":"DESIGUAL JAPAN"},"6067712":{"Geo":"China","Type":"Existing Book","Name":"Beauty Forever"},"6081048":{"Geo":"China","Type":"Existing Book","Name":"Glamermaid"},"6094901":{"Geo":"APAC - Others","Type":"Existing Book","Name":"WES (World Eduation Services)"},"6103169":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Kayak Software Corporation"},"6103170":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Kayak Software Corporation"},"6103196":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Kayak Software Corporation"},"6109855":{"Geo":"China","Type":"Existing Book","Name":"iWALK"},"6116651":{"Geo":"China","Type":"Existing Book","Name":"Klaiyi Hair"},"6163733":{"Geo":"China","Type":"Existing Book","Name":"myChway Beauty Tools"},"6216442":{"Geo":"China","Type":"Existing Book","Name":"Bluu"},"6229571":{"Geo":"China","Type":"Existing Book","Name":"Julia Hair"},"6252772":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Beauty Ninja - Skincare &"},"6316298":{"Geo":"China","Type":"Existing Book","Name":"Phrozen Affiliate Program"},"6379996":{"Geo":"India","Type":"Existing Book","Name":"GIVA"},"7182748":{"Geo":"China","Type":"Existing Book","Name":"Aiper AU"},"6424481":{"Geo":"China","Type":"Existing Book","Name":"Lifesight"},"6432689":{"Geo":"India","Type":"Existing Book","Name":"Angara"},"6463114":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Luksusbaby"},"6493540":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Flock FZ LLC DMCC"},"6584182":{"Geo":"China","Type":"Existing Book","Name":"HONGKONG DYU TECHNOLOGY L"},"6685106":{"Geo":"China","Type":"Existing Book","Name":"Renogy"},"6864832":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Lazada MY"},"6937741":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Western Union Financial Services, Inc"},"7022960":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Octa Markets LTD"},"7052001":{"Geo":"Vietnam","Type":"Existing Book","Name":"Gossby - DLS"},"7054649":{"Geo":"Vietnam","Type":"Existing Book","Name":"Unifury"},"7133231":{"Geo":"SEA","Type":"Existing Book","Name":"Ollie"},"7185453":{"Geo":"Vietnam","Type":"Existing Book","Name":"Wander Prints"},"7318529":{"Geo":"APAC - Others","Type":"Existing Book","Name":"APAC - GCash - CPL - 2024"},"7385563":{"Geo":"China","Type":"Existing Book","Name":"Popilush US"},"7447711":{"Geo":"SEA","Type":"Existing Book","Name":"APACLG_Tyroo_Mastercard_M"},"7462051":{"Geo":"SEA","Type":"Existing Book","Name":"Crocs HK"},"7462074":{"Geo":"SEA","Type":"Existing Book","Name":"Teva HK"},"7613147":{"Geo":"SEA","Type":"Existing Book","Name":"Qube Smart B2B LeadGen"},"5610532":{"Geo":"China","Type":"New Book","Name":"ZeBrand"},"5913107":{"Geo":"Korea","Type":"Existing Book","Name":"Babybjorn Korea"},"6103168":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Kayak Software Corporation"},"6103173":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Kayak Software Corporation"},"7819955":{"Geo":"India","Type":"New Book","Name":"VIP Cars_Global"},"7819130":{"Geo":"SEA","Type":"New Book","Name":"Stylevana Affiliate Progr"},"7624468":{"Geo":"India","Type":"New Book","Name":"OYO USA"},"7850276":{"Geo":"India","Type":"New Book","Name":"Driffle INC"},"7624978":{"Geo":"India","Type":"New Book","Name":"OYO OVH Belvilla"},"5101835":{"Geo":"SEA","Type":"Existing Book","Name":"MegaZip"},"5611471":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Bose APAC"},"7641772":{"Geo":"China","Type":"Existing Book","Name":"Baseus EU and UK Amazon M"},"7641760":{"Geo":"China","Type":"Existing Book","Name":"Baseus US Amazon Marketpl"},"6342639":{"Geo":"China","Type":"Existing Book","Name":"Vantrue"},"6045815":{"Geo":"China","Type":"Existing Book","Name":"Hohem"},"6174183":{"Geo":"APAC - Others","Type":"Existing Book","Name":"K7 Antivirus"},"6273488":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Clearly AUS"},"7087880":{"Geo":"China","Type":"Existing Book","Name":"Temu APAC"},"5966498":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Western Digital APAC"},"5313197":{"Geo":"China","Type":"Existing Book","Name":"ITEAD"},"7185601":{"Geo":"China","Type":"Existing Book","Name":"Sunber Hair"},"5422087":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Clip Studio Paint"},"5906858":{"Geo":"Korea","Type":"Existing Book","Name":"Babybjorn SEAP"},"6582116":{"Geo":"China","Type":"Existing Book","Name":"Funny Fuzzy"},"6053590":{"Geo":"China","Type":"Existing Book","Name":"Nadula Hair"},"6100283":{"Geo":"China","Type":"Existing Book","Name":"Roborock Affiliate Progra"},"6175973":{"Geo":"China","Type":"Existing Book","Name":"EcoFlow UK"},"5221082":{"Geo":"India","Type":"Existing Book","Name":"Stellar"},"5197358":{"Geo":"China","Type":"Existing Book","Name":"Tenorshare/PassFab"},"5485604":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Tokyo Treat"},"7804601":{"Geo":"China","Type":"New Book","Name":"GearUP"},"6242886":{"Geo":"China","Type":"Existing Book","Name":"VIVIDSTORM Projection Scr"},"7529241":{"Geo":"China","Type":"Existing Book","Name":"Aomei"},"7432145":{"Geo":"Korea","Type":"Existing Book","Name":"Wish Trend"},"7504299":{"Geo":"China","Type":"Existing Book","Name":"Safeshell"},"7568188":{"Geo":"China","Type":"Existing Book","Name":"TCL homesecurity"},"7721650":{"Geo":"SEA","Type":"Existing Book","Name":"Billstone"},"7892263":{"Geo":"China","Type":"New Book","Name":"kaerworld"},"7207881":{"Geo":"China","Type":"Existing Book","Name":"Urban Revivo"},"7696308":{"Geo":"China","Type":"Existing Book","Name":"Panda Office Limited"},"7493867":{"Geo":"China","Type":"Existing Book","Name":"Vevor AU/CA/UK/MX"},"7603322":{"Geo":"China","Type":"Existing Book","Name":"Imobie"},"5683510":{"Geo":"China","Type":"Existing Book","Name":"VideoProc Affiliate Progr"},"5594555":{"Geo":"China","Type":"Existing Book","Name":"Modelones.com"},"7883485":{"Geo":"China","Type":"New Book","Name":"Honey Play Box"},"5306197":{"Geo":"China","Type":"Existing Book","Name":"PureVPN Affiliate Program"},"7582444":{"Geo":"China","Type":"Existing Book","Name":"Bc Babycare"},"3387283":{"Geo":"China","Type":"Existing Book","Name":"GeekBuying"},"6385512":{"Geo":"China","Type":"Existing Book","Name":"Fanka INT"},"7633156":{"Geo":"China","Type":"Existing Book","Name":"Meross"},"6050938":{"Geo":"China","Type":"Existing Book","Name":"Vevor FR"},"7538034":{"Geo":"US BD","Type":"Existing Book","Name":"Agoda APAC"},"7863754":{"Geo":"China","Type":"New Book","Name":"FITUEYES"},"4723933":{"Geo":"China","Type":"Existing Book","Name":"PatPat"},"4794533":{"Geo":"India","Type":"Existing Book","Name":"ExpertRating"},"5306164":{"Geo":"APAC - Others","Type":"Existing Book","Name":"McAfee APAC"},"7726106":{"Geo":"Korea","Type":"Existing Book","Name":"d'Alba Amazon Marketplace"},"5484692":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Oakley AUS"},"6318041":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Paula's Choice Australia"},"7845357":{"Geo":"China","Type":"New Book","Name":"LILYSILK"},"7685296":{"Geo":"Korea","Type":"Existing Book","Name":"Mary&May-Amazon Marketpla"},"4295086":{"Geo":"China","Type":"Existing Book","Name":"PandaHall"},"7711902":{"Geo":"China","Type":"New Book","Name":"AliExpress - Global"},"4498040":{"Geo":"China","Type":"Existing Book","Name":"Banggood CJ Affiliate Pro"},"5484690":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Ray-Ban AUS"},"7696208":{"Geo":"China","Type":"Existing Book","Name":"Lexar - CJ Marketplace"},"7696220":{"Geo":"China","Type":"New Book","Name":"Pexar - Amazon Marketplac"},"6175965":{"Geo":"China","Type":"Existing Book","Name":"EcoFlow CA"},"7337617":{"Geo":"SEA","Type":"Existing Book","Name":"Jetpac Global"},"7816336":{"Geo":"Korea","Type":"New Book","Name":"WADIZ Affiliate KR/JP/US"},"7839428":{"Geo":"China","Type":"New Book","Name":"Amotopart"},"7884518":{"Geo":"Vietnam","Type":"New Book","Name":"SWaddle AN"},"1097361":{"Geo":"China","Type":"Existing Book","Name":"CyberLink"},"4839834":{"Geo":"China","Type":"Existing Book","Name":"Modlily.com"},"6326546":{"Geo":"China","Type":"Existing Book","Name":"Ulike"},"7423961":{"Geo":"China","Type":"Existing Book","Name":"Fanttik"},"5484691":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Sunglass Hut AUS"},"7319897":{"Geo":"Vietnam","Type":"Existing Book","Name":"CompoundX E-Commercer Lim"},"7824417":{"Geo":"China","Type":"New Book","Name":"Mowrator"},"7614828":{"Geo":"SEA","Type":"Existing Book","Name":"Auras Insurance"},"7427803":{"Geo":"SEA","Type":"Existing Book","Name":"PLDT Home"},"6387385":{"Geo":"China","Type":"Existing Book","Name":"BloomChic"},"6325655":{"Geo":"China","Type":"Existing Book","Name":"Luvme Hair"},"7344620":{"Geo":"India","Type":"Existing Book","Name":"HP India"},"7008093":{"Geo":"India","Type":"Existing Book","Name":"Air India"},"6123342":{"Geo":"China","Type":"Existing Book","Name":"EcoFlow EU"},"7636568":{"Geo":"China","Type":"Existing Book","Name":"Coofandy"},"6191107":{"Geo":"China","Type":"Existing Book","Name":"Bluetti Global"},"5824323":{"Geo":"China","Type":"Existing Book","Name":"UNice"},"6213251":{"Geo":"SEA","Type":"Existing Book","Name":"Creation Watches"},"6305416":{"Geo":"China","Type":"Existing Book","Name":"Halara"},"7662403":{"Geo":"SEA","Type":"Existing Book","Name":"Malaysia Airlines"},"7342799":{"Geo":"US BD","Type":"Existing Book","Name":"Premier Farnell Japan"},"6668575":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Havaianas"},"5815804":{"Geo":"China","Type":"Existing Book","Name":"EcoFlow"},"7468134":{"Geo":"Korea","Type":"Existing Book","Name":"Amorepacific"},"7686542":{"Geo":"China","Type":"Existing Book","Name":"KSP Performance"},"3940130":{"Geo":"APAC - Others","Type":"Existing Book","Name":"SmartBuyGlasses"},"6404897":{"Geo":"China","Type":"Existing Book","Name":"Aiper"},"3194603":{"Geo":"China","Type":"Existing Book","Name":"Wondershare"},"5966681":{"Geo":"China","Type":"Existing Book","Name":"Vevor"},"5261735":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Google Workspace APAC"},"5521273":{"Geo":"India","Type":"Existing Book","Name":"Dell Consumer - India"},"6164489":{"Geo":"China","Type":"Existing Book","Name":"EaseUS"},"4956152":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Autodesk Asia Pacific"},"7461882":{"Geo":"China","Type":"Existing Book","Name":"Dreame US"},"7110677":{"Geo":"Vietnam","Type":"Existing Book","Name":"Macorner - DZT"},"5599987":{"Geo":"China","Type":"Existing Book","Name":"Vivaia INT"},"6005268":{"Geo":"China","Type":"Existing Book","Name":"Cupshe US"},"6642029":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Dell Global BV"},"4368684":{"Geo":"SEA","Type":"Existing Book","Name":"Trip.com (Global)"},"7443634":{"Geo":"China","Type":"Existing Book","Name":"Jackery"},"7134757":{"Geo":"Korea","Type":"Existing Book","Name":"Adidas Korea"}};
+// ── CID MAP ───────────────────────────────────────────────────────────────────
+const CID_MAP = {"5960888":{"Geo":"India","Type":"Existing Book","Name":"Puma"},"6884817":{"Geo":"US BD","Type":"Existing Book","Name":"AccorPlus"},"2612819":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Hotels.com APAC"},"2683708":{"Geo":"China","Type":"Existing Book","Name":"LightInTheBox"},"2997613":{"Geo":"APAC - Others","Type":"Existing Book","Name":"HotelsCombined"},"3412625":{"Geo":"SEA","Type":"Existing Book","Name":"Accorhotels.com Asia Paci"},"3773223":{"Geo":"China","Type":"Existing Book","Name":"Shein AMF"},"4699387":{"Geo":"China","Type":"Existing Book","Name":"Fairyseason"},"4777179":{"Geo":"China","Type":"Existing Book","Name":"Zaful"},"4854093":{"Geo":"China","Type":"Existing Book","Name":"Bellelily"},"4956136":{"Geo":"APAC - Others","Type":"Existing Book","Name":"HomeAway Australia"},"5002800":{"Geo":"SEA","Type":"Existing Book","Name":"Cookly.me"},"5074754":{"Geo":"India","Type":"Existing Book","Name":"Edureka"},"5139516":{"Geo":"SEA","Type":"Existing Book","Name":"Klook"},"5149517":{"Geo":"China","Type":"Existing Book","Name":"Eufy"},"5270097":{"Geo":"SEA","Type":"Existing Book","Name":"Dell Home & Small Busines"},"5270098":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Dell Home & Small Busines"},"5325775":{"Geo":"Korea","Type":"Existing Book","Name":"Rimowa JP"},"5363732":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Google Store APAC"},"5432429":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Dell Consumer Malaysia"},"5432431":{"Geo":"SEA","Type":"Existing Book","Name":"Dell Consumer Singapore"},"5521282":{"Geo":"India","Type":"Existing Book","Name":"Dell Small Business - Ind"},"5756595":{"Geo":"Korea","Type":"Existing Book","Name":"Rimowa APAC"},"5765586":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Rimowa AU"},"5884511":{"Geo":"APAC - Others","Type":"Existing Book","Name":"DESIGUAL JAPAN"},"6067712":{"Geo":"China","Type":"Existing Book","Name":"Beauty Forever"},"6081048":{"Geo":"China","Type":"Existing Book","Name":"Glamermaid"},"6094901":{"Geo":"APAC - Others","Type":"Existing Book","Name":"WES (World Eduation Services)"},"6103169":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Kayak Software Corporation"},"6103170":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Kayak Software Corporation"},"6103196":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Kayak Software Corporation"},"6109855":{"Geo":"China","Type":"Existing Book","Name":"iWALK"},"6116651":{"Geo":"China","Type":"Existing Book","Name":"Klaiyi Hair"},"6163733":{"Geo":"China","Type":"Existing Book","Name":"myChway Beauty Tools"},"6216442":{"Geo":"China","Type":"Existing Book","Name":"Bluu"},"6229571":{"Geo":"China","Type":"Existing Book","Name":"Julia Hair"},"6252772":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Beauty Ninja - Skincare &"},"6316298":{"Geo":"China","Type":"Existing Book","Name":"Phrozen Affiliate Program"},"6379996":{"Geo":"India","Type":"Existing Book","Name":"GIVA"},"7182748":{"Geo":"China","Type":"Existing Book","Name":"Aiper AU"},"6424481":{"Geo":"China","Type":"Existing Book","Name":"Lifesight"},"6432689":{"Geo":"India","Type":"Existing Book","Name":"Angara"},"6463114":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Luksusbaby"},"6493540":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Flock FZ LLC DMCC"},"6584182":{"Geo":"China","Type":"Existing Book","Name":"HONGKONG DYU TECHNOLOGY L"},"6685106":{"Geo":"China","Type":"Existing Book","Name":"Renogy"},"6864832":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Lazada MY"},"6937741":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Western Union Financial Services, Inc"},"7022960":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Octa Markets LTD"},"7052001":{"Geo":"Vietnam","Type":"Existing Book","Name":"Gossby - DLS"},"7054649":{"Geo":"Vietnam","Type":"Existing Book","Name":"Unifury"},"7133231":{"Geo":"SEA","Type":"Existing Book","Name":"Ollie"},"7185453":{"Geo":"Vietnam","Type":"Existing Book","Name":"Wander Prints"},"7318529":{"Geo":"APAC - Others","Type":"Existing Book","Name":"APAC - GCash - CPL - 2024"},"7385563":{"Geo":"China","Type":"Existing Book","Name":"Popilush US"},"7447711":{"Geo":"SEA","Type":"Existing Book","Name":"APACLG_Tyroo_Mastercard_M"},"7462051":{"Geo":"SEA","Type":"Existing Book","Name":"Crocs HK"},"7462074":{"Geo":"SEA","Type":"Existing Book","Name":"Teva HK"},"7613147":{"Geo":"SEA","Type":"Existing Book","Name":"Qube Smart B2B LeadGen"},"5610532":{"Geo":"China","Type":"New Book","Name":"ZeBrand"},"5913107":{"Geo":"Korea","Type":"Existing Book","Name":"Babybjorn Korea"},"6103168":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Kayak Software Corporation"},"6103173":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Kayak Software Corporation"},"7819955":{"Geo":"India","Type":"New Book","Name":"VIP Cars_Global"},"7819130":{"Geo":"SEA","Type":"New Book","Name":"Stylevana Affiliate Progr"},"7624468":{"Geo":"India","Type":"New Book","Name":"OYO USA"},"7850276":{"Geo":"India","Type":"New Book","Name":"Driffle INC"},"7624978":{"Geo":"India","Type":"New Book","Name":"OYO OVH Belvilla"},"5101835":{"Geo":"SEA","Type":"Existing Book","Name":"MegaZip"},"5611471":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Bose APAC"},"7641772":{"Geo":"China","Type":"Existing Book","Name":"Baseus EU and UK Amazon M"},"7641760":{"Geo":"China","Type":"Existing Book","Name":"Baseus US Amazon Marketpl"},"6342639":{"Geo":"China","Type":"Existing Book","Name":"Vantrue"},"6045815":{"Geo":"China","Type":"Existing Book","Name":"Hohem"},"6174183":{"Geo":"APAC - Others","Type":"Existing Book","Name":"K7 Antivirus"},"6273488":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Clearly AUS"},"7087880":{"Geo":"China","Type":"Existing Book","Name":"Temu APAC"},"5966498":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Western Digital APAC"},"5313197":{"Geo":"China","Type":"Existing Book","Name":"ITEAD"},"7185601":{"Geo":"China","Type":"Existing Book","Name":"Sunber Hair"},"5422087":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Clip Studio Paint"},"5906858":{"Geo":"Korea","Type":"Existing Book","Name":"Babybjorn SEAP"},"6582116":{"Geo":"China","Type":"Existing Book","Name":"Funny Fuzzy"},"6053590":{"Geo":"China","Type":"Existing Book","Name":"Nadula Hair"},"6100283":{"Geo":"China","Type":"Existing Book","Name":"Roborock Affiliate Progra"},"6175973":{"Geo":"China","Type":"Existing Book","Name":"EcoFlow UK"},"5221082":{"Geo":"India","Type":"Existing Book","Name":"Stellar"},"5197358":{"Geo":"China","Type":"Existing Book","Name":"Tenorshare/PassFab"},"5485604":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Tokyo Treat"},"7804601":{"Geo":"China","Type":"New Book","Name":"GearUP"},"6242886":{"Geo":"China","Type":"Existing Book","Name":"VIVIDSTORM Projection Scr"},"7529241":{"Geo":"China","Type":"Existing Book","Name":"Aomei"},"7432145":{"Geo":"Korea","Type":"Existing Book","Name":"Wish Trend"},"7504299":{"Geo":"China","Type":"Existing Book","Name":"Safeshell"},"7568188":{"Geo":"China","Type":"Existing Book","Name":"TCL homesecurity"},"7721650":{"Geo":"SEA","Type":"Existing Book","Name":"Billstone"},"7892263":{"Geo":"China","Type":"New Book","Name":"kaerworld"},"7207881":{"Geo":"China","Type":"Existing Book","Name":"Urban Revivo"},"7696308":{"Geo":"China","Type":"Existing Book","Name":"Panda Office Limited"},"7493867":{"Geo":"China","Type":"Existing Book","Name":"Vevor AU/CA/UK/MX"},"7603322":{"Geo":"China","Type":"Existing Book","Name":"Imobie"},"5683510":{"Geo":"China","Type":"Existing Book","Name":"VideoProc Affiliate Progr"},"5594555":{"Geo":"China","Type":"Existing Book","Name":"Modelones.com"},"7883485":{"Geo":"China","Type":"New Book","Name":"Honey Play Box"},"5306197":{"Geo":"China","Type":"Existing Book","Name":"PureVPN Affiliate Program"},"7582444":{"Geo":"China","Type":"Existing Book","Name":"Bc Babycare"},"3387283":{"Geo":"China","Type":"Existing Book","Name":"GeekBuying"},"6385512":{"Geo":"China","Type":"Existing Book","Name":"Fanka INT"},"7633156":{"Geo":"China","Type":"Existing Book","Name":"Meross"},"6050938":{"Geo":"China","Type":"Existing Book","Name":"Vevor FR"},"7538034":{"Geo":"US BD","Type":"Existing Book","Name":"Agoda APAC"},"7863754":{"Geo":"China","Type":"New Book","Name":"FITUEYES"},"4723933":{"Geo":"China","Type":"Existing Book","Name":"PatPat"},"4794533":{"Geo":"India","Type":"Existing Book","Name":"ExpertRating"},"5306164":{"Geo":"APAC - Others","Type":"Existing Book","Name":"McAfee APAC"},"7726106":{"Geo":"Korea","Type":"Existing Book","Name":"d'Alba Amazon Marketplace"},"5484692":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Oakley AUS"},"6318041":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Paula's Choice Australia"},"7845357":{"Geo":"China","Type":"New Book","Name":"LILYSILK"},"7685296":{"Geo":"Korea","Type":"Existing Book","Name":"Mary&May-Amazon Marketpla"},"4295086":{"Geo":"China","Type":"Existing Book","Name":"PandaHall"},"7711902":{"Geo":"China","Type":"New Book","Name":"AliExpress - Global"},"4498040":{"Geo":"China","Type":"Existing Book","Name":"Banggood CJ Affiliate Pro"},"5484690":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Ray-Ban AUS"},"7696208":{"Geo":"China","Type":"Existing Book","Name":"Lexar - CJ Marketplace"},"7696220":{"Geo":"China","Type":"New Book","Name":"Pexar - Amazon Marketplac"},"6175965":{"Geo":"China","Type":"Existing Book","Name":"EcoFlow CA"},"7337617":{"Geo":"SEA","Type":"Existing Book","Name":"Jetpac Global"},"7816336":{"Geo":"Korea","Type":"New Book","Name":"WADIZ Affiliate KR/JP/US"},"7839428":{"Geo":"China","Type":"New Book","Name":"Amotopart"},"7884518":{"Geo":"Vietnam","Type":"New Book","Name":"SWaddle AN"},"1097361":{"Geo":"China","Type":"Existing Book","Name":"CyberLink"},"4839834":{"Geo":"China","Type":"Existing Book","Name":"Modlily.com"},"6326546":{"Geo":"China","Type":"Existing Book","Name":"Ulike"},"7423961":{"Geo":"China","Type":"Existing Book","Name":"Fanttik"},"5484691":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Sunglass Hut AUS"},"7319897":{"Geo":"Vietnam","Type":"Existing Book","Name":"CompoundX E-Commercer Lim"},"7824417":{"Geo":"China","Type":"New Book","Name":"Mowrator"},"7614828":{"Geo":"SEA","Type":"Existing Book","Name":"Auras Insurance"},"7427803":{"Geo":"SEA","Type":"Existing Book","Name":"PLDT Home"},"6387385":{"Geo":"China","Type":"Existing Book","Name":"BloomChic"},"6325655":{"Geo":"China","Type":"Existing Book","Name":"Luvme Hair"},"7344620":{"Geo":"India","Type":"Existing Book","Name":"HP India"},"7008093":{"Geo":"India","Type":"Existing Book","Name":"Air India"},"6123342":{"Geo":"China","Type":"Existing Book","Name":"EcoFlow EU"},"7636568":{"Geo":"China","Type":"Existing Book","Name":"Coofandy"},"6191107":{"Geo":"China","Type":"Existing Book","Name":"Bluetti Global"},"5824323":{"Geo":"China","Type":"Existing Book","Name":"UNice"},"6213251":{"Geo":"SEA","Type":"Existing Book","Name":"Creation Watches"},"6305416":{"Geo":"China","Type":"Existing Book","Name":"Halara"},"7662403":{"Geo":"SEA","Type":"Existing Book","Name":"Malaysia Airlines"},"7342799":{"Geo":"US BD","Type":"Existing Book","Name":"Premier Farnell Japan"},"6668575":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Havaianas"},"5815804":{"Geo":"China","Type":"Existing Book","Name":"EcoFlow"},"7468134":{"Geo":"Korea","Type":"Existing Book","Name":"Amorepacific"},"7686542":{"Geo":"China","Type":"Existing Book","Name":"KSP Performance"},"3940130":{"Geo":"APAC - Others","Type":"Existing Book","Name":"SmartBuyGlasses"},"6404897":{"Geo":"China","Type":"Existing Book","Name":"Aiper"},"3194603":{"Geo":"China","Type":"Existing Book","Name":"Wondershare"},"5966681":{"Geo":"China","Type":"Existing Book","Name":"Vevor"},"5261735":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Google Workspace APAC"},"5521273":{"Geo":"India","Type":"Existing Book","Name":"Dell Consumer - India"},"6164489":{"Geo":"China","Type":"Existing Book","Name":"EaseUS"},"4956152":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Autodesk Asia Pacific"},"7461882":{"Geo":"China","Type":"Existing Book","Name":"Dreame US"},"7110677":{"Geo":"Vietnam","Type":"Existing Book","Name":"Macorner - DZT"},"5599987":{"Geo":"China","Type":"Existing Book","Name":"Vivaia INT"},"6005268":{"Geo":"China","Type":"Existing Book","Name":"Cupshe US"},"6642029":{"Geo":"APAC - Others","Type":"Existing Book","Name":"Dell Global BV"},"4368684":{"Geo":"SEA","Type":"Existing Book","Name":"Trip.com (Global)"},"7443634":{"Geo":"China","Type":"Existing Book","Name":"Jackery"},"7134757":{"Geo":"Korea","Type":"Existing Book","Name":"Adidas Korea"}};
 
-const masterDict = {"cyberlink":{"Geo":"China","history":{"Dec'23":1593,"Jan'24":1528,"Feb'24":1650,"Mar'24":1492,"Apr'24":1290,"May'24":1344,"June'24":1285,"July'24":1057,"Aug'24":1816,"Sep'24":1919,"Oct'24":1722,"Nov'24":1513,"Dec'24":1656,"Jan'25":1764,"Feb'25":1317,"Mar'25":1621,"April'25":1276,"May'25":1549,"June'25":1057,"July'25":1499,"Aug'25":1204,"Sep'25":1338,"Oct'25":1575,"Nov'25":1371,"Dec'25":1643,"Jan'26":1438,"Feb'26":1368,"Mar'26":1500}},"wondershare":{"Geo":"China","history":{"Dec'23":12123,"Jan'24":10620,"Feb'24":9173,"Mar'24":11100,"Apr'24":9768,"May'24":9190,"June'24":9115,"July'24":8868,"Aug'24":8611,"Sep'24":7825,"Oct'24":8858,"Nov'24":10466,"Dec'24":8770,"Jan'25":10358,"Feb'25":10684,"Mar'25":11698,"April'25":11178,"May'25":9160,"June'25":8868,"July'25":9136,"Aug'25":7836,"Sep'25":7708,"Oct'25":8449,"Nov'25":7861,"Dec'25":7716,"Jan'26":7056,"Feb'26":6171,"Mar'26":6544}},"smartbuyglasses":{"Geo":"APAC - Others","history":{"Dec'23":4521,"Jan'24":4782,"Feb'24":3873,"Mar'24":5372,"Apr'24":5797,"May'24":5062,"June'24":4136,"July'24":5758,"Aug'24":3649,"Sep'24":3940,"Oct'24":4291,"Nov'24":3954,"Dec'24":3980,"Jan'25":4977,"Feb'25":4710,"Mar'25":5892,"April'25":5124,"May'25":3165,"June'25":5758,"July'25":7502,"Aug'25":6995,"Sep'25":5104,"Oct'25":3486,"Nov'25":6056,"Dec'25":6857,"Jan'26":5848,"Feb'26":5905,"Mar'26":5791}},"trip.com (global)":{"Geo":"SEA","history":{"Dec'23":18629,"Jan'24":24851,"Feb'24":24904,"Mar'24":41181,"Apr'24":39724,"May'24":39417,"June'24":31952,"July'24":83618,"Aug'24":56539,"Sep'24":48346,"Oct'24":64161,"Nov'24":63196,"Dec'24":74454,"Jan'25":68320,"Feb'25":70591,"Mar'25":18040,"April'25":15644,"May'25":18363,"June'25":13797,"July'25":18469,"Aug'25":17637,"Sep'25":25758,"Oct'25":11279,"Nov'25":24551,"Dec'25":24141,"Jan'26":15058,"Feb'26":24371,"Mar'26":26031}},"mcafee apac":{"Geo":"APAC - Others","history":{"Dec'23":32604,"Jan'24":36654,"Feb'24":28644,"Mar'24":31656,"Apr'24":27537,"May'24":17705,"June'24":19162,"July'24":12546,"Aug'24":23561,"Sep'24":30354,"Oct'24":30696,"Nov'24":24256,"Dec'24":18922,"Jan'25":15796,"Feb'25":17890,"Mar'25":21276,"April'25":15203,"May'25":13913,"June'25":12546,"July'25":11793,"Aug'25":14703,"Sep'25":14511,"Oct'25":14262,"Nov'25":12193,"Dec'25":9852,"Jan'26":12142,"Feb'26":1945,"Mar'26":5706}},"google workspace apac":{"Geo":"APAC - Others","history":{"Dec'23":5845,"Jan'24":5684,"Feb'24":5616,"Mar'24":5959,"Apr'24":6109,"May'24":5553,"June'24":6225,"July'24":6754,"Aug'24":5871,"Sep'24":5464,"Oct'24":6016,"Nov'24":6144,"Dec'24":5661,"Jan'25":6085,"Feb'25":6067,"Mar'25":6680,"April'25":6727,"May'25":6592,"June'25":6754,"July'25":8074,"Aug'25":6652,"Sep'25":6138,"Oct'25":6191,"Nov'25":6085,"Dec'25":6774,"Jan'26":6535,"Feb'26":6513,"Mar'26":6435}},"autodesk asia pacific":{"Geo":"APAC - Others","history":{"Dec'23":5483,"Jan'24":33017,"Feb'24":-12989,"Mar'24":-1275,"Apr'24":4997,"May'24":4487,"June'24":5524,"July'24":15698,"Aug'24":6939,"Sep'24":9457,"Oct'24":25401,"Nov'24":-2710,"Dec'24":21582,"Jan'25":5386,"Feb'25":8386,"Mar'25":17362,"April'25":16600,"May'25":15367,"June'25":15698,"July'25":15176,"Aug'25":12999,"Sep'25":18668,"Oct'25":13971,"Nov'25":9713,"Dec'25":18938,"Jan'26":25595,"Feb'26":17928,"Mar'26":33445}},"dell consumer - india":{"Geo":"India","history":{"Dec'23":1303,"Jan'24":5021,"Feb'24":-884,"Mar'24":4952,"Apr'24":3836,"May'24":3902,"June'24":-1184,"July'24":4690,"Aug'24":3820,"Sep'24":3550,"Oct'24":2383,"Nov'24":4309,"Dec'24":4668,"Jan'25":7147,"Feb'25":3399,"Mar'25":4907,"April'25":7683,"May'25":196,"June'25":4690,"July'25":8238,"Aug'25":2033,"Sep'25":5260,"Oct'25":214,"Nov'25":3758,"Dec'25":8786,"Jan'26":5442,"Feb'26":-17980,"Mar'26":9511}},"air india":{"Geo":"India","history":{"June'24":2986,"July'24":2953,"Aug'24":3017,"Sep'24":3306,"Oct'24":5453,"Nov'24":5051,"Dec'24":5186,"Jan'25":4402,"Feb'25":2699,"Mar'25":3496,"April'25":3231,"May'25":3302,"June'25":2953,"July'25":3438,"Aug'25":7403,"Sep'25":8525,"Oct'25":7121,"Nov'25":13613,"Dec'25":10949,"Jan'26":7306,"Feb'26":427,"Mar'26":14806}},"creation watches":{"Geo":"SEA","history":{"Dec'23":4460,"Jan'24":2580,"Feb'24":1868,"Mar'24":1620,"Apr'24":1782,"May'24":2259,"June'24":2238,"July'24":3396,"Aug'24":1702,"Sep'24":2301,"Oct'24":1621,"Nov'24":2460,"Dec'24":3317,"Jan'25":2401,"Feb'25":2020,"Mar'25":2108,"April'25":3931,"May'25":3720,"June'25":3396,"July'25":3692,"Aug'25":3068,"Sep'25":3821,"Oct'25":2305,"Nov'25":3935,"Dec'25":3851,"Jan'26":2918,"Feb'26":2841,"Mar'26":2208}},"adidas korea":{"Geo":"Korea","history":{"July'24":10125,"April'25":878,"May'25":1219,"June'25":10125,"July'25":4737,"Aug'25":5474,"Sep'25":7383,"Oct'25":7420,"Nov'25":8964,"Dec'25":3294,"Jan'26":8947,"Feb'26":8157,"Mar'26":17886}},"aiper":{"Geo":"China","history":{"Dec'23":385,"Jan'24":489,"Feb'24":560,"Mar'24":1387,"Apr'24":2882,"May'24":8581,"June'24":6009,"July'24":12531,"Aug'24":1074,"Sep'24":647,"Oct'24":539,"Nov'24":261,"Dec'24":1011,"Jan'25":412,"Feb'25":139,"Mar'25":2174,"April'25":715,"May'25":2643,"June'25":12531,"July'25":4047,"Aug'25":6613,"Sep'25":4412,"Oct'25":1861,"Nov'25":8760,"Dec'25":864,"Jan'26":3535,"Feb'26":4939,"Mar'26":4435}},"jackery":{"Geo":"China","history":{"July'24":39,"June'25":39,"July'25":5884,"Aug'25":3079,"Sep'25":6842,"Oct'25":17430,"Nov'25":15872,"Dec'25":14805,"Jan'26":9759,"Feb'26":4315,"Mar'26":27991}},"ulike":{"Geo":"China","history":{"July'24":2154,"Sep'24":906,"Oct'24":896,"Nov'24":1598,"Dec'24":2648,"Jan'25":2713,"Feb'25":5030,"Mar'25":4921,"April'25":3323,"May'25":2842,"June'25":2154,"July'25":4717,"Aug'25":1271,"Sep'25":10407,"Oct'25":12697,"Nov'25":13302,"Dec'25":12984,"Jan'26":11575,"Feb'26":11102,"Mar'26":6195}},"easeus":{"Geo":"China","history":{"July'24":5303,"Mar'25":6143,"April'25":6446,"May'25":6653,"June'25":5303,"July'25":8358,"Aug'25":7487,"Sep'25":9021,"Oct'25":7213,"Nov'25":7179,"Dec'25":6962,"Jan'26":6168,"Feb'26":6480,"Mar'26":9633}},"cupshe us":{"Geo":"China","history":{"July'24":34725,"Mar'25":25902,"April'25":18614,"May'25":23685,"June'25":34725,"July'25":20888,"Aug'25":-2182,"Sep'25":1569,"Oct'25":3918,"Nov'25":8748,"Dec'25":7125,"Jan'26":10657,"Feb'26":11533,"Mar'26":16004}},"vivaia int":{"Geo":"China","history":{"Dec'23":-1002,"Jan'24":5932,"Feb'24":5826,"Mar'24":8233,"Apr'24":7844,"May'24":6884,"June'24":7895,"July'24":2660,"Aug'24":4787,"Sep'24":6243,"Oct'24":6596,"Nov'24":738,"Dec'24":1408,"Jan'25":971,"Feb'25":1526,"Mar'25":3586,"April'25":2011,"May'25":3053,"June'25":2660,"July'25":1670,"Aug'25":3337,"Sep'25":3387,"Oct'25":1883,"Nov'25":5774,"Dec'25":617,"Jan'26":3293,"Feb'26":6346,"Mar'26":8427}},"dell global bv":{"Geo":"APAC - Others","history":{"Apr'24":3708,"May'24":15471,"June'24":29232,"July'24":22528,"Aug'24":13105,"Sep'24":8102,"Oct'24":17117,"Nov'24":31376,"Dec'24":11334,"Jan'25":10703,"Feb'25":12101,"Mar'25":10531,"April'25":10730,"May'25":10249,"June'25":22528,"July'25":11254,"Aug'25":4710,"Sep'25":9103,"Oct'25":14072,"Nov'25":21594,"Dec'25":12932,"Jan'26":10675,"Feb'26":6806,"Mar'26":11345}},"havaianas":{"Geo":"APAC - Others","history":{"Jan'24":5500,"Feb'24":2533,"Mar'24":6060,"Apr'24":3395,"May'24":2450,"June'24":3218,"July'24":3187,"Aug'24":3018,"Sep'24":3645,"Oct'24":2646,"Nov'24":3194,"Dec'24":4141,"Jan'25":3426,"Feb'25":2926,"Mar'25":2906,"April'25":2837,"May'25":2683,"June'25":3187,"July'25":2954,"Aug'25":3041,"Sep'25":3069,"Oct'25":2936,"Nov'25":3055,"Dec'25":3146,"Jan'26":2774,"Feb'26":2986,"Mar'26":2980}},"luvme hair":{"Geo":"China","history":{"July'24":1971,"Aug'24":1986,"Sep'24":795,"Oct'24":1663,"Nov'24":2610,"Dec'24":1255,"Jan'25":808,"Feb'25":1628,"Mar'25":2086,"April'25":877,"May'25":3199,"June'25":1971,"July'25":1600,"Aug'25":4174,"Sep'25":4532,"Oct'25":5720,"Nov'25":5943,"Dec'25":2037,"Jan'26":4706,"Feb'26":4795,"Mar'26":4817}},"macorner - dzt":{"Geo":"Vietnam","history":{"July'24":2508,"Aug'24":1129,"Sep'24":1130,"Oct'24":2118,"Nov'24":6156,"Dec'24":3072,"Jan'25":1485,"Feb'25":1214,"Mar'25":1021,"April'25":4267,"May'25":4827,"June'25":2508,"July'25":2012,"Aug'25":2023,"Sep'25":1928,"Oct'25":4922,"Nov'25":2878,"Dec'25":-65,"Jan'26":3292,"Feb'26":1957,"Mar'26":1389}},"western union financial services, inc":{"Geo":"APAC - Others","history":{"May'24":90,"June'24":772,"July'24":10157,"Aug'24":1475,"Sep'24":1283,"Oct'24":35430,"Nov'24":10595,"Dec'24":10651,"Jan'25":10444,"Feb'25":11000,"Mar'25":10459,"April'25":10310,"May'25":10224,"June'25":10157,"July'25":10135,"Aug'25":10166,"Sep'25":10161,"Oct'25":10131,"Nov'25":10104,"Dec'25":10110,"Jan'26":5007}},"amorepacific":{"Geo":"Korea","history":{"July'24":1262,"May'25":396,"June'25":1262,"July'25":3308,"Aug'25":3132,"Sep'25":2780,"Oct'25":3152,"Nov'25":3520,"Dec'25":2647,"Jan'26":3122,"Feb'26":2864,"Mar'26":2927}},"malaysia airlines":{"Geo":"SEA","history":{"Oct'25":1634,"Nov'25":4184,"Dec'25":4128,"Jan'26":3962,"Feb'26":3876,"Mar'26":4897}},"ksp performance":{"Geo":"China","history":{"Nov'25":547,"Dec'25":2035,"Jan'26":1532,"Feb'26":3028,"Mar'26":4530}},"dreame us":{"Geo":"China","history":{"Dec'25":137,"Jan'26":3435,"Feb'26":2179,"Mar'26":9845}},"agoda apac":{"Geo":"APAC - Others","history":{"Aug'25":11503,"Sep'25":13234,"Oct'25":20290,"Nov'25":21661,"Dec'25":17904,"Jan'26":10891,"Feb'26":14729,"Mar'26":17356}}};
+// masterDict — monthly net history
+const MD = {"cyberlink":{"history":{"Dec'23":1593,"Jan'24":1528,"Feb'24":1650,"Mar'24":1492,"Apr'24":1290,"May'24":1344,"June'24":1285,"July'24":1057,"Aug'24":1816,"Sep'24":1919,"Oct'24":1722,"Nov'24":1513,"Dec'24":1656,"Jan'25":1764,"Feb'25":1317,"Mar'25":1621,"April'25":1276,"May'25":1549,"June'25":1057,"July'25":1499,"Aug'25":1204,"Sep'25":1338,"Oct'25":1575,"Nov'25":1371,"Dec'25":1643,"Jan'26":1438,"Feb'26":1368,"Mar'26":1500}},"wondershare":{"history":{"Dec'23":12123,"Jan'24":10620,"Feb'24":9173,"Mar'24":11100,"Apr'24":9768,"May'24":9190,"June'24":9115,"July'24":8868,"Aug'24":8611,"Sep'24":7825,"Oct'24":8858,"Nov'24":10466,"Dec'24":8770,"Jan'25":10358,"Feb'25":10684,"Mar'25":11698,"April'25":11178,"May'25":9160,"June'25":8868,"July'25":9136,"Aug'25":7836,"Sep'25":7708,"Oct'25":8449,"Nov'25":7861,"Dec'25":7716,"Jan'26":7056,"Feb'26":6171,"Mar'26":6544}},"smartbuyglasses":{"history":{"Dec'23":4521,"Jan'24":4782,"Feb'24":3873,"Mar'24":5372,"Apr'24":5797,"May'24":5062,"June'24":4136,"July'24":5758,"Aug'24":3649,"Sep'24":3940,"Oct'24":4291,"Nov'24":3954,"Dec'24":3980,"Jan'25":4977,"Feb'25":4710,"Mar'25":5892,"April'25":5124,"May'25":3165,"June'25":5758,"July'25":7502,"Aug'25":6995,"Sep'25":5104,"Oct'25":3486,"Nov'25":6056,"Dec'25":6857,"Jan'26":5848,"Feb'26":5905,"Mar'26":5791}},"trip.com (global)":{"history":{"Dec'23":18629,"Jan'24":24851,"Feb'24":24904,"Mar'24":41181,"Apr'24":39724,"May'24":39417,"June'24":31952,"July'24":83618,"Aug'24":56539,"Sep'24":48346,"Oct'24":64161,"Nov'24":63196,"Dec'24":74454,"Jan'25":68320,"Feb'25":70591,"Mar'25":18040,"April'25":15644,"May'25":18363,"June'25":13797,"July'25":18469,"Aug'25":17637,"Sep'25":25758,"Oct'25":11279,"Nov'25":24551,"Dec'25":24141,"Jan'26":15058,"Feb'26":24371,"Mar'26":26031}},"mcafee apac":{"history":{"Dec'23":32604,"Jan'24":36654,"Feb'24":28644,"Mar'24":31656,"Apr'24":27537,"May'24":17705,"June'24":19162,"July'24":12546,"Aug'24":23561,"Sep'24":30354,"Oct'24":30696,"Nov'24":24256,"Dec'24":18922,"Jan'25":15796,"Feb'25":17890,"Mar'25":21276,"April'25":15203,"May'25":13913,"June'25":12546,"July'25":11793,"Aug'25":14703,"Sep'25":14511,"Oct'25":14262,"Nov'25":12193,"Dec'25":9852,"Jan'26":12142,"Feb'26":1945,"Mar'26":5706}},"google workspace apac":{"history":{"Dec'23":5845,"Jan'24":5684,"Feb'24":5616,"Mar'24":5959,"Apr'24":6109,"May'24":5553,"June'24":6225,"July'24":6754,"Aug'24":5871,"Sep'24":5464,"Oct'24":6016,"Nov'24":6144,"Dec'24":5661,"Jan'25":6085,"Feb'25":6067,"Mar'25":6680,"April'25":6727,"May'25":6592,"June'25":6754,"July'25":8074,"Aug'25":6652,"Sep'25":6138,"Oct'25":6191,"Nov'25":6085,"Dec'25":6774,"Jan'26":6535,"Feb'26":6513,"Mar'26":6435}},"autodesk asia pacific":{"history":{"Dec'23":5483,"Jan'24":33017,"Feb'24":-12989,"Mar'24":-1275,"Apr'24":4997,"May'24":4487,"June'24":5524,"July'24":15698,"Aug'24":6939,"Sep'24":9457,"Oct'24":25401,"Nov'24":-2710,"Dec'24":21582,"Jan'25":5386,"Feb'25":8386,"Mar'25":17362,"April'25":16600,"May'25":15367,"June'25":15698,"July'25":15176,"Aug'25":12999,"Sep'25":18668,"Oct'25":13971,"Nov'25":9713,"Dec'25":18938,"Jan'26":25595,"Feb'26":17928,"Mar'26":33445}},"dell consumer - india":{"history":{"Dec'23":1303,"Jan'24":5021,"Feb'24":-884,"Mar'24":4952,"Apr'24":3836,"May'24":3902,"June'24":-1184,"July'24":4690,"Aug'24":3820,"Sep'24":3550,"Oct'24":2383,"Nov'24":4309,"Dec'24":4668,"Jan'25":7147,"Feb'25":3399,"Mar'25":4907,"April'25":7683,"May'25":196,"June'25":4690,"July'25":8238,"Aug'25":2033,"Sep'25":5260,"Oct'25":214,"Nov'25":3758,"Dec'25":8786,"Jan'26":5442,"Feb'26":-17980,"Mar'26":9511}},"air india":{"history":{"June'24":2986,"July'24":2953,"Aug'24":3017,"Sep'24":3306,"Oct'24":5453,"Nov'24":5051,"Dec'24":5186,"Jan'25":4402,"Feb'25":2699,"Mar'25":3496,"April'25":3231,"May'25":3302,"June'25":2953,"July'25":3438,"Aug'25":7403,"Sep'25":8525,"Oct'25":7121,"Nov'25":13613,"Dec'25":10949,"Jan'26":7306,"Feb'26":427,"Mar'26":14806}},"creation watches":{"history":{"Dec'23":4460,"Jan'24":2580,"Feb'24":1868,"Mar'24":1620,"Apr'24":1782,"May'24":2259,"June'24":2238,"July'24":3396,"Aug'24":1702,"Sep'24":2301,"Oct'24":1621,"Nov'24":2460,"Dec'24":3317,"Jan'25":2401,"Feb'25":2020,"Mar'25":2108,"April'25":3931,"May'25":3720,"June'25":3396,"July'25":3692,"Aug'25":3068,"Sep'25":3821,"Oct'25":2305,"Nov'25":3935,"Dec'25":3851,"Jan'26":2918,"Feb'26":2841,"Mar'26":2208}},"adidas korea":{"history":{"July'24":10125,"April'25":878,"May'25":1219,"June'25":10125,"July'25":4737,"Aug'25":5474,"Sep'25":7383,"Oct'25":7420,"Nov'25":8964,"Dec'25":3294,"Jan'26":8947,"Feb'26":8157,"Mar'26":17886}},"aiper":{"history":{"Dec'23":385,"Jan'24":489,"Feb'24":560,"Mar'24":1387,"Apr'24":2882,"May'24":8581,"June'24":6009,"July'24":12531,"Aug'24":1074,"Sep'24":647,"Oct'24":539,"Nov'24":261,"Dec'24":1011,"Jan'25":412,"Feb'25":139,"Mar'25":2174,"April'25":715,"May'25":2643,"June'25":12531,"July'25":4047,"Aug'25":6613,"Sep'25":4412,"Oct'25":1861,"Nov'25":8760,"Dec'25":864,"Jan'26":3535,"Feb'26":4939,"Mar'26":4435}},"jackery":{"history":{"July'24":39,"June'25":39,"July'25":5884,"Aug'25":3079,"Sep'25":6842,"Oct'25":17430,"Nov'25":15872,"Dec'25":14805,"Jan'26":9759,"Feb'26":4315,"Mar'26":27991}},"ulike":{"history":{"July'24":2154,"Sep'24":906,"Oct'24":896,"Nov'24":1598,"Dec'24":2648,"Jan'25":2713,"Feb'25":5030,"Mar'25":4921,"April'25":3323,"May'25":2842,"June'25":2154,"July'25":4717,"Aug'25":1271,"Sep'25":10407,"Oct'25":12697,"Nov'25":13302,"Dec'25":12984,"Jan'26":11575,"Feb'26":11102,"Mar'26":6195}},"easeus":{"history":{"July'24":5303,"Mar'25":6143,"April'25":6446,"May'25":6653,"June'25":5303,"July'25":8358,"Aug'25":7487,"Sep'25":9021,"Oct'25":7213,"Nov'25":7179,"Dec'25":6962,"Jan'26":6168,"Feb'26":6480,"Mar'26":9633}},"cupshe us":{"history":{"July'24":34725,"Mar'25":25902,"April'25":18614,"May'25":23685,"June'25":34725,"July'25":20888,"Aug'25":-2182,"Sep'25":1569,"Oct'25":3918,"Nov'25":8748,"Dec'25":7125,"Jan'26":10657,"Feb'26":11533,"Mar'26":16004}},"vivaia int":{"history":{"Dec'23":-1002,"Jan'24":5932,"Feb'24":5826,"Mar'24":8233,"Apr'24":7844,"May'24":6884,"June'24":7895,"July'24":2660,"Aug'24":4787,"Sep'24":6243,"Oct'24":6596,"Nov'24":738,"Dec'24":1408,"Jan'25":971,"Feb'25":1526,"Mar'25":3586,"April'25":2011,"May'25":3053,"June'25":2660,"July'25":1670,"Aug'25":3337,"Sep'25":3387,"Oct'25":1883,"Nov'25":5774,"Dec'25":617,"Jan'26":3293,"Feb'26":6346,"Mar'26":8427}},"dell global bv":{"history":{"Apr'24":3708,"May'24":15471,"June'24":29232,"July'24":22528,"Aug'24":13105,"Sep'24":8102,"Oct'24":17117,"Nov'24":31376,"Dec'24":11334,"Jan'25":10703,"Feb'25":12101,"Mar'25":10531,"April'25":10730,"May'25":10249,"June'25":22528,"July'25":11254,"Aug'25":4710,"Sep'25":9103,"Oct'25":14072,"Nov'25":21594,"Dec'25":12932,"Jan'26":10675,"Feb'26":6806,"Mar'26":11345}},"havaianas":{"history":{"Jan'24":5500,"Feb'24":2533,"Mar'24":6060,"Apr'24":3395,"May'24":2450,"June'24":3218,"July'24":3187,"Aug'24":3018,"Sep'24":3645,"Oct'24":2646,"Nov'24":3194,"Dec'24":4141,"Jan'25":3426,"Feb'25":2926,"Mar'25":2906,"April'25":2837,"May'25":2683,"June'25":3187,"July'25":2954,"Aug'25":3041,"Sep'25":3069,"Oct'25":2936,"Nov'25":3055,"Dec'25":3146,"Jan'26":2774,"Feb'26":2986,"Mar'26":2980}},"luvme hair":{"history":{"July'24":1971,"Aug'24":1986,"Sep'24":795,"Oct'24":1663,"Nov'24":2610,"Dec'24":1255,"Jan'25":808,"Feb'25":1628,"Mar'25":2086,"April'25":877,"May'25":3199,"June'25":1971,"July'25":1600,"Aug'25":4174,"Sep'25":4532,"Oct'25":5720,"Nov'25":5943,"Dec'25":2037,"Jan'26":4706,"Feb'26":4795,"Mar'26":4817}},"macorner - dzt":{"history":{"July'24":2508,"Aug'24":1129,"Sep'24":1130,"Oct'24":2118,"Nov'24":6156,"Dec'24":3072,"Jan'25":1485,"Feb'25":1214,"Mar'25":1021,"April'25":4267,"May'25":4827,"June'25":2508,"July'25":2012,"Aug'25":2023,"Sep'25":1928,"Oct'25":4922,"Nov'25":2878,"Dec'25":-65,"Jan'26":3292,"Feb'26":1957,"Mar'26":1389}},"western union financial services, inc":{"history":{"May'24":90,"June'24":772,"July'24":10157,"Aug'24":1475,"Sep'24":1283,"Oct'24":35430,"Nov'24":10595,"Dec'24":10651,"Jan'25":10444,"Feb'25":11000,"Mar'25":10459,"April'25":10310,"May'25":10224,"June'25":10157,"July'25":10135,"Aug'25":10166,"Sep'25":10161,"Oct'25":10131,"Nov'25":10104,"Dec'25":10110,"Jan'26":5007}},"amorepacific":{"history":{"July'24":1262,"May'25":396,"June'25":1262,"July'25":3308,"Aug'25":3132,"Sep'25":2780,"Oct'25":3152,"Nov'25":3520,"Dec'25":2647,"Jan'26":3122,"Feb'26":2864,"Mar'26":2927}},"malaysia airlines":{"history":{"Oct'25":1634,"Nov'25":4184,"Dec'25":4128,"Jan'26":3962,"Feb'26":3876,"Mar'26":4897}},"ksp performance":{"history":{"Nov'25":547,"Dec'25":2035,"Jan'26":1532,"Feb'26":3028,"Mar'26":4530}},"dreame us":{"history":{"Dec'25":137,"Jan'26":3435,"Feb'26":2179,"Mar'26":9845}},"agoda apac":{"history":{"Aug'25":11503,"Sep'25":13234,"Oct'25":20290,"Nov'25":21661,"Dec'25":17904,"Jan'26":10891,"Feb'26":14729,"Mar'26":17356}},"bose apac":{"history":{"Dec'23":1796,"Jan'24":1472,"Feb'24":2605,"Mar'24":2435,"Apr'24":2516,"May'24":2275,"June'24":3062,"July'24":5809,"Aug'24":2510,"Sep'24":2507,"Oct'24":2664,"Nov'24":6875,"Dec'24":3741,"Jan'25":563,"Feb'25":3198,"Mar'25":2589,"April'25":2043,"May'25":2133,"June'25":5809,"July'25":1695,"Aug'25":2226,"Sep'25":2214,"Oct'25":2851,"Nov'25":5493,"Dec'25":1964,"Jan'26":1801,"Feb'26":1787,"Mar'26":93}},"k7 antivirus":{"history":{"Dec'23":287,"Jan'24":343,"Feb'24":252,"Mar'24":646,"Apr'24":273,"May'24":298,"June'24":311,"July'24":333,"Aug'24":293,"Sep'24":326,"Oct'24":325,"Nov'24":302,"Dec'24":283,"Jan'25":288,"Feb'25":386,"Mar'25":200,"April'25":329,"May'25":253,"June'25":333,"July'25":337,"Aug'25":244,"Sep'25":330,"Oct'25":288,"Nov'25":285,"Dec'25":296,"Jan'26":421,"Feb'26":226,"Mar'26":248}},"clip studio paint":{"history":{"Dec'23":1674,"Jan'24":1764,"Feb'24":1083,"Mar'24":1075,"Apr'24":450,"May'24":672,"June'24":671,"July'24":961,"Aug'24":406,"Sep'24":720,"Oct'24":428,"Nov'24":1011,"Dec'24":609,"Jan'25":610,"Feb'25":677,"Mar'25":1017,"April'25":418,"May'25":450,"June'25":961,"July'25":462,"Aug'25":449,"Sep'25":973,"Oct'25":261,"Nov'25":766,"Dec'25":435,"Jan'26":518,"Feb'26":435,"Mar'26":1111}},"ray-ban aus":{"history":{"Dec'23":2049,"Jan'24":978,"Feb'24":1026,"Mar'24":1241,"Apr'24":609,"May'24":1056,"June'24":521,"July'24":1379,"Aug'24":1468,"Sep'24":1181,"Oct'24":1560,"Nov'24":5523,"Dec'24":2716,"Jan'25":1507,"Feb'25":1322,"Mar'25":1999,"April'25":1012,"May'25":1337,"June'25":1379,"July'25":872,"Aug'25":1248,"Sep'25":1907,"Oct'25":1582,"Nov'25":4264,"Dec'25":2325,"Jan'26":1471,"Feb'26":822,"Mar'26":1212}},"sunglass hut aus":{"history":{"Dec'23":5495,"Jan'24":2664,"Feb'24":2048,"Mar'24":3494,"Apr'24":1370,"May'24":1491,"June'24":1700,"July'24":2244,"Aug'24":2503,"Sep'24":2679,"Oct'24":2656,"Nov'24":5871,"Dec'24":5895,"Jan'25":1306,"Feb'25":2158,"Mar'25":1964,"April'25":1673,"May'25":2154,"June'25":2244,"July'25":896,"Aug'25":2112,"Sep'25":2063,"Oct'25":2153,"Nov'25":5288,"Dec'25":4650,"Jan'26":1687,"Feb'26":1656,"Mar'26":1608}},"oakley aus":{"history":{"Dec'23":2604,"Jan'24":1935,"Feb'24":1653,"Mar'24":1452,"Apr'24":1064,"May'24":1069,"June'24":925,"July'24":666,"Aug'24":1252,"Sep'24":846,"Oct'24":681,"Nov'24":2773,"Dec'24":2183,"Jan'25":751,"Feb'25":581,"Mar'25":649,"April'25":553,"May'25":763,"June'25":666,"July'25":782,"Aug'25":1570,"Sep'25":1201,"Oct'25":1268,"Nov'25":3319,"Dec'25":1829,"Jan'26":871,"Feb'26":709,"Mar'26":737}},"paula's choice australia":{"history":{"Dec'23":2594,"Jan'24":2483,"Feb'24":1974,"Mar'24":3416,"Apr'24":-517,"May'24":4815,"June'24":1448,"July'24":2070,"Aug'24":1857,"Sep'24":1658,"Oct'24":2578,"Nov'24":3111,"Dec'24":1972,"Jan'25":860,"Feb'25":1246,"Mar'25":2396,"April'25":1326,"May'25":2158,"June'25":2070,"July'25":1165,"Aug'25":2090,"Sep'25":952,"Oct'25":1612,"Nov'25":3430,"Dec'25":1438,"Jan'26":838,"Feb'26":1034,"Mar'26":1844}},"tokyo treat":{"history":{"Dec'23":665,"Jan'24":99,"Feb'24":498,"Mar'24":526,"Apr'24":485,"May'24":474,"June'24":496,"July'24":560,"Aug'24":450,"Sep'24":527,"Oct'24":647,"Nov'24":688,"Dec'24":1364,"Jan'25":111,"Feb'25":571,"Mar'25":448,"April'25":531,"May'25":424,"June'25":560,"July'25":446,"Aug'25":439,"Sep'25":523,"Oct'25":503,"Nov'25":596,"Dec'25":602,"Jan'26":301,"Feb'26":596,"Mar'26":379}},"western digital apac":{"history":{"Dec'23":475,"Jan'24":466,"Feb'24":784,"Mar'24":544,"Apr'24":159,"May'24":494,"June'24":575,"Aug'24":415,"Sep'24":139,"Oct'24":871,"Nov'24":4,"June'25":46,"Aug'25":1,"Sep'25":21,"Oct'25":31,"Nov'25":52,"Dec'25":93,"Jan'26":152,"Feb'26":255,"Mar'26":172}},"wes (world eduation services)":{"history":{"Dec'23":3507,"Jan'24":3517,"Feb'24":3508,"Mar'24":7108,"Apr'24":3428,"May'24":3357,"June'24":2579,"July'24":2526,"Aug'24":2408,"Sep'24":2437,"Oct'24":2488,"Nov'24":2581,"Dec'24":2475,"Jan'25":2496,"Feb'25":2477,"Mar'25":2500,"April'25":2741,"May'25":2229,"June'25":2526,"July'25":2474,"Aug'25":4568,"Sep'25":7984}},"kayak software corporation":{"history":{"Apr'24":17,"May'24":18,"June'24":1,"Aug'24":11,"Sep'24":32,"Oct'24":20,"Nov'24":24,"Dec'24":12,"Sep'25":2,"Oct'25":10,"Nov'25":3,"Dec'25":3,"Jan'26":25,"Feb'26":1,"Mar'26":21}},"octa markets ltd":{"history":{"June'24":5539,"July'24":5725,"Aug'24":5515,"Sep'24":5440,"Oct'24":5680,"Nov'24":6400,"Dec'24":6820,"Jan'25":3580,"Feb'25":10255,"Mar'25":5580,"April'25":11045,"May'25":4275,"June'25":5725,"July'25":3820,"Aug'25":5500,"Sep'25":5500,"Oct'25":5500,"Nov'25":5500,"Dec'25":5500,"Jan'26":5007,"Feb'26":5500,"Mar'26":-8500}},"premier farnell japan":{"history":{"Dec'25":2200,"Jan'26":4005,"Feb'26":1999,"Mar'26":3007}},"pandahall":{"history":{"Dec'23":1221,"Jan'24":96,"Feb'24":947,"Mar'24":684,"Apr'24":769,"May'24":1239,"June'24":813,"July'24":1315,"Aug'24":1637,"Sep'24":1518,"Oct'24":1732,"Nov'24":1801,"Dec'24":1100,"Jan'25":1370,"Feb'25":1281,"Mar'25":1564,"April'25":1377,"May'25":1504,"June'25":1315,"July'25":1416,"Aug'25":1437,"Sep'25":1337,"Oct'25":1723,"Nov'25":1330,"Dec'25":1955,"Jan'26":1607,"Feb'26":848,"Mar'26":937}}};
 
-let DB = null;
-let chartInstance = null;
+let DB = null, chartInst = null;
 
-// ── DATA ──────────────────────────────────────────────────────────────────────
-async function loadData() {
-    const url = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${BRANCH}/${DATA_FILE}?t=${Date.now()}`;
-    const res  = await fetch(url);
-    if (!res.ok) throw new Error('Could not load latest.json');
-    DB = await res.json();
-    BLOCKED_CIDS.forEach(cid => {
-        if (DB.records)        delete DB.records[cid];
-        if (DB.monthlyArchive) delete DB.monthlyArchive[cid];
-        if (DB.userMappings)   delete DB.userMappings[cid];
-    });
-    document.getElementById('dataTag').textContent = `Data through ${DB.lastUpdated || '—'}`;
-}
-
-// ── TIME SERIES ───────────────────────────────────────────────────────────────
-function parseMonthKey(mk) {
-    const m = mk.match(/^([A-Za-z]+)'(\d{2})$/);
-    if (!m) return null;
-    const mo = MONTH_KEY_MAP[m[1]];
-    return mo !== undefined ? { month: mo, year: 2000 + parseInt(m[2]) } : null;
-}
-function dateKeyParts(k) {
-    const m = String(k).match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/);
-    if (!m) return null;
-    let [,,mon,yr] = m; if(yr.length===2) yr='20'+yr;
-    const idx = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-        .findIndex(x => mon.toLowerCase()===x.toLowerCase());
-    return idx >= 0 ? { month: idx, year: parseInt(yr) } : null;
-}
-function getDaysInMonth(y, m) { return new Date(y, m+1, 0).getDate(); }
-
-function buildTimeSeries(cids, windowMonths) {
-    // Find latest date in liveRecords
-    let maxMonth = 2, maxYear = 2026;
-    if (DB.records) {
-        for (const cid of Object.keys(DB.records)) {
-            for (const k of Object.keys(DB.records[cid].net || {})) {
-                const p = dateKeyParts(k);
-                if (p && (p.year > maxYear || (p.year === maxYear && p.month > maxMonth))) {
-                    maxYear = p.year; maxMonth = p.month;
-                }
-            }
-        }
-    }
-
-    const windowStart = new Date(maxYear, maxMonth - windowMonths, 1);
-    const totals = {};
-
-    for (const cid of cids) {
-        if (BLOCKED_CIDS.has(cid)) continue;
-        const factor = cid === '4368684' ? 0.165 : 1;
-        const meta   = cidGeoMap[cid] || (DB.userMappings && DB.userMappings[cid]);
-        const name   = meta ? meta.Name.toLowerCase() : '';
-
-        // masterDict match
-        // Bidirectional substring match
-        const _nl = name.toLowerCase().trim();
-        const masterKey = Object.keys(masterDict).find(k =>
-            _nl === k || _nl.includes(k) || k.includes(_nl)
-        );
-        if (masterKey) {
-            for (const [mk, val] of Object.entries(masterDict[masterKey].history)) {
-                const p = parseMonthKey(mk); if (!p) continue;
-                const dt = new Date(p.year, p.month, 1);
-                if (dt < windowStart || (p.year === maxYear && p.month > maxMonth)) continue;
-                const key = `${p.year}-${String(p.month).padStart(2,'0')}`;
-                totals[key] = (totals[key] || 0) + val * factor;
-            }
-        }
-
-        // monthlyArchive — keys are monthly format "April'26" (from admin rollup)
-        // Must use parseMonthKey(), not dateKeyParts()
-        if (DB.monthlyArchive && DB.monthlyArchive[cid]) {
-            for (const [mk, val] of Object.entries(DB.monthlyArchive[cid])) {
-                const p = parseMonthKey(mk); if (!p) continue;
-                const dt = new Date(p.year, p.month, 1);
-                if (dt < windowStart || (p.year === maxYear && p.month > maxMonth)) continue;
-                const key = `${p.year}-${String(p.month).padStart(2,'0')}`;
-                totals[key] = (totals[key] || 0) + val * factor;
-            }
-        }
-
-        // liveRecords: project current (partial) month to full month.
-        // ONLY the current month (maxMonth/maxYear) is projected — past months in liveRecords
-        // are already in masterDict or monthlyArchive so we skip them.
-        // Day 1 always contains bulk fixed fees — excluded from run rate, added back as-is.
-        // Projection = day1 + avg(days 2..N) × (daysInMonth - 1)
-        if (DB.records && DB.records[cid]) {
-            const netEntries = DB.records[cid].net || {};
-            // Only process the current month — all others are in masterDict/archive already
-            const mkey = `${maxYear}-${String(maxMonth).padStart(2,'0')}`;
-            let day1 = 0, rest = [];
-            for (const [dk, val] of Object.entries(netEntries)) {
-                const p = dateKeyParts(dk); if (!p) continue;
-                if (p.year !== maxYear || p.month !== maxMonth) continue;
-                const dayNum = parseInt(dk.split('-')[0]);
-                if (dayNum === 1) day1 += val;
-                else              rest.push(val);
-            }
-            if (day1 !== 0 || rest.length > 0) {
-                const daysIn = getDaysInMonth(maxYear, maxMonth);
-                let projected;
-                if (rest.length === 0) {
-                    // Only day 1 data — cannot extrapolate run rate, use as-is
-                    projected = day1;
-                } else {
-                    // Run rate from days 2..N projected over remaining (daysIn - 1) days
-                    const dailyAvg = rest.reduce((a,b) => a+b, 0) / rest.length;
-                    projected = day1 + dailyAvg * (daysIn - 1);
-                }
-                totals[mkey] = (totals[mkey] || 0) + projected * factor;
-            }
-        }
-    }
-
-    const series = Object.entries(totals)
-        .sort(([a],[b]) => a.localeCompare(b))
-        .map(([key, value]) => {
-            const [yr, mo] = key.split('-').map(Number);
-            return { year: yr, month: mo, value };
-        });
-
-    return { series, currentMonth: maxMonth, currentYear: maxYear };
-}
-
-// ── REGIME DETECTION ─────────────────────────────────────────────────────────
-// Returns 'plateau' | 'growth' | 'decline'
-function detectRegime(series) {
-    if (series.length < 4) return 'plateau';
-    const recent = series.slice(-6).map(s => s.value);
-    const n = recent.length;
-
-    // Coefficient of variation of last 3 months → plateau if tight
-    const last3 = recent.slice(-3);
-    const mean3  = last3.reduce((a,b)=>a+b,0) / 3;
-    const std3   = Math.sqrt(last3.reduce((s,v)=>s+(v-mean3)**2,0) / 3);
-    const cv3    = mean3 !== 0 ? std3 / Math.abs(mean3) : 1;
-
-    // Slope of last 6 months as % of mean
-    const mean6  = recent.reduce((a,b)=>a+b,0) / n;
-    const xMean  = (n-1)/2;
-    const num    = recent.reduce((s,v,i)=>s+(i-xMean)*(v-mean6),0);
-    const den    = recent.reduce((s,_,i)=>s+(i-xMean)**2,0);
-    const slope  = den ? num/den : 0;
-    const slopePct = mean6 !== 0 ? slope / Math.abs(mean6) : 0;
-
-    if (cv3 < 0.15 && Math.abs(slopePct) < 0.08) return 'plateau';
-    if (slopePct >  0.08) return 'growth';
-    return 'decline';
-}
-
-// ── FORECASTING PRIMITIVES ────────────────────────────────────────────────────
-
-// Geometrically weighted moving average (more recent = higher weight)
-function weightedMA(series, k = 3) {
-    if (series.length < k) k = series.length;
-    const recent = series.slice(-k).map(s => s.value);
-    let wSum = 0, total = 0;
-    for (let i = 0; i < recent.length; i++) {
-        const w = Math.pow(2, i); // geometric: 1,2,4...
-        total += recent[i] * w;
-        wSum  += w;
-    }
-    return total / wSum;
-}
-
-// Damped Holt's — trend is damped by phi toward zero (prevents runaway)
-function dampedHolt(series, alpha = 0.4, beta = 0.2, phi = 0.85) {
-    if (series.length < 4) return null;
-    const v = series.map(s => s.value);
-    let l = v[0], b = v[1] - v[0];
-    for (let i = 1; i < v.length; i++) {
-        const lPrev = l;
-        l = alpha * v[i] + (1 - alpha) * (l + phi * b);
-        b = beta * (l - lPrev) + (1 - beta) * phi * b;
-    }
-    // 1-step ahead with damping
-    return l + phi * b;
-}
-
-// Trimmed mean of last N months (removes top & bottom outlier)
-function trimmedMean(series, k = 6) {
-    if (series.length < 3) return null;
-    const recent = series.slice(-k).map(s => s.value).sort((a,b)=>a-b);
-    // Remove one from each end if length allows
-    const trimmed = recent.length > 4 ? recent.slice(1, -1) : recent;
-    return trimmed.reduce((a,b)=>a+b,0) / trimmed.length;
-}
-
-// Capped linear trend — max MoM change ±20%
-function cappedLinear(series, cap = 0.20) {
-    if (series.length < 4) return null;
-    const recent = series.slice(-8);
-    const n = recent.length;
-    const v = recent.map(s => s.value);
-    const xMean = (n-1)/2;
-    const yMean = v.reduce((a,b)=>a+b,0) / n;
-    const num   = v.reduce((s,vi,i) => s + (i-xMean)*(vi-yMean), 0);
-    const den   = v.reduce((s,_,i)  => s + (i-xMean)**2, 0);
-    const slope = den ? num/den : 0;
-    const pred  = yMean + slope * (n - 1 + 1 - xMean);
-    // Cap at ±20% of last actual
-    const last  = v[v.length - 1];
-    if (last === 0) return pred;
-    const maxUp  = last * (1 + cap);
-    const maxDn  = last * (1 - cap);
-    return Math.min(maxUp, Math.max(maxDn, pred));
-}
-
-// Seasonal ratio (only applied if we have prior year data, bounded at ±15%)
-function seasonalFactor(series, targetMonth) {
-    const sameMonthPairs = [];
-    for (const s of series) {
-        if (s.month !== targetMonth) continue;
-        const prevYear = series.find(p => p.month === targetMonth && p.year === s.year - 1);
-        if (prevYear && prevYear.value !== 0) {
-            sameMonthPairs.push(s.value / prevYear.value);
-        }
-    }
-    if (sameMonthPairs.length === 0) return null;
-    const avgRatio = sameMonthPairs.reduce((a,b)=>a+b,0) / sameMonthPairs.length;
-    // Bound: 0.85 – 1.15 (±15%)
-    return Math.min(1.15, Math.max(0.85, avgRatio));
-}
-
-// ── REGIME-AWARE ENSEMBLE ─────────────────────────────────────────────────────
-function regimeEnsemble(series, targetMonth) {
-    if (series.length < 2) return null;
-    const regime = detectRegime(series);
-
-    const wma    = weightedMA(series, 3);
-    const dHolt  = dampedHolt(series);
-    const trimmed = trimmedMean(series, 6);
-    const linCap = cappedLinear(series);
-    const sFactor = seasonalFactor(series, targetMonth);
-
-    let raw;
-    let methodBreakdown = [];
-
-    if (regime === 'plateau') {
-        // Plateau: anchor heavily on recent weighted average, damp trend almost to zero
-        const w = { wma: 0.60, dHolt: 0.25, trimmed: 0.15 };
-        const valid = [
-            { name: 'Weighted MA (3mo)', val: wma,     w: w.wma,     desc: 'Recent 3 months, geometrically weighted' },
-            { name: 'Damped Trend',      val: dHolt,   w: w.dHolt,   desc: "Holt's with φ=0.85 damping — trend suppressed" },
-            { name: 'Trimmed Mean',      val: trimmed, w: w.trimmed, desc: 'Last 6 months, outliers removed' },
-        ].filter(m => m.val !== null && isFinite(m.val));
-        const totalW = valid.reduce((s,m)=>s+m.w, 0);
-        raw = totalW > 0 ? valid.reduce((s,m) => s + m.val * (m.w/totalW), 0) : (weightedMA(series,3) || 0);
-        methodBreakdown = valid.map(m => ({ ...m, normW: totalW>0 ? m.w/totalW : 0 }));
-
-    } else if (regime === 'growth') {
-        // Growth: let damped trend lead, but cap it
-        const w = { dHolt: 0.40, wma: 0.35, linCap: 0.25 };
-        const valid = [
-            { name: 'Damped Trend',       val: dHolt,  w: w.dHolt,  desc: "Holt's with damping — prevents over-extrapolation" },
-            { name: 'Weighted MA (3mo)',   val: wma,    w: w.wma,    desc: 'Recent momentum anchor' },
-            { name: 'Capped Linear Trend', val: linCap, w: w.linCap, desc: 'OLS trend, capped at ±20% MoM' },
-        ].filter(m => m.val !== null && isFinite(m.val));
-        const totalW = valid.reduce((s,m)=>s+m.w, 0);
-        raw = totalW > 0 ? valid.reduce((s,m) => s + m.val * (m.w/totalW), 0) : (weightedMA(series,3) || 0);
-        methodBreakdown = valid.map(m => ({ ...m, normW: totalW>0 ? m.w/totalW : 0 }));
-
-    } else {
-        // Decline: weight recent actuals heavily, floor at zero
-        const w = { wma: 0.55, dHolt: 0.30, trimmed: 0.15 };
-        const valid = [
-            { name: 'Weighted MA (3mo)', val: wma,     w: w.wma,     desc: 'Recent actuals — decline phase anchor' },
-            { name: 'Damped Trend',      val: dHolt,   w: w.dHolt,   desc: 'Trend with damping (decline-aware)' },
-            { name: 'Trimmed Mean',      val: trimmed, w: w.trimmed, desc: 'Last 6 months, spike-filtered' },
-        ].filter(m => m.val !== null && isFinite(m.val));
-        const totalW = valid.reduce((s,m)=>s+m.w, 0);
-        raw = valid.reduce((s,m) => s + m.val * (m.w/totalW), 0);
-        raw = Math.max(0, raw); // floor at zero for decline
-        methodBreakdown = valid.map(m => ({ ...m, normW: m.w/totalW }));
-    }
-
-    // Apply seasonal factor (bounded ±15%) only if meaningful
-    let forecast = raw;
-    let seasonalApplied = false;
-    if (sFactor !== null && Math.abs(sFactor - 1) > 0.03) {
-        forecast = raw * sFactor;
-        seasonalApplied = true;
-    }
-
-    // Confidence: lower CV = higher confidence
-    const vals = methodBreakdown.map(m => m.val);
-    const mean = vals.reduce((a,b)=>a+b,0) / vals.length;
-    const variance = vals.reduce((s,v)=>s+(v-mean)**2,0) / vals.length;
-    const cv = mean !== 0 ? Math.sqrt(variance)/Math.abs(mean) : 1;
-    const confidence = Math.max(0.30, Math.min(0.98, 1 - cv));
-
-    // Range: ±1 std of method values
-    const std = Math.sqrt(variance);
-    const lo  = Math.max(0, forecast - std);
-    const hi  = forecast + std;
-
-    // Guard against NaN/Infinity from edge cases
-    if (!isFinite(forecast)) forecast = weightedMA(series, Math.min(3, series.length)) || 0;
-    forecast = Math.max(0, forecast);
-    lo = Math.max(0, lo);
-    return { forecast, regime, methodBreakdown, confidence, lo, hi, seasonalApplied, sFactor };
-}
-
-// ── FILTER UTILS ──────────────────────────────────────────────────────────────
-function getFilteredCIDs(geo, book) {
-    const all = new Set([...Object.keys(cidGeoMap), ...Object.keys(DB.userMappings || {})]);
-    BLOCKED_CIDS.forEach(c => all.delete(c));
-    return Array.from(all).filter(cid => {
-        if (BLOCKED_CIDS.has(cid)) return false;
-        const meta = cidGeoMap[cid] || (DB.userMappings && DB.userMappings[cid]);
-        if (!meta) return false;
-        if (geo  !== 'All' && meta.Geo  !== geo)  return false;
-        if (book !== 'All' && meta.Type !== book) return false;
-        return true;
-    });
-}
-
+// ── HELPERS ───────────────────────────────────────────────────────────────────
 function fmtK(v) {
-    const abs = Math.abs(v), sign = v < 0 ? '-' : '';
-    if (abs >= 1e6) return sign + '$' + (abs/1e6).toFixed(2) + 'M';
-    if (abs >= 1e3) return sign + '$' + (abs/1e3).toFixed(1) + 'K';
-    return sign + '$' + abs.toFixed(0);
+  if (!isFinite(v)) return '—';
+  const a=Math.abs(v), s=v<0?'-':'';
+  return a>=1e6 ? s+'$'+(a/1e6).toFixed(2)+'M' : a>=1e3 ? s+'$'+(a/1e3).toFixed(1)+'K' : s+'$'+a.toFixed(0);
 }
 function fmtPct(v) {
-    if (!isFinite(v)) return '—';
-    const s = (Math.abs(v)*100).toFixed(1)+'%';
-    return v > 0 ? '+'+s : '-'+s;
+  if (!isFinite(v)) return '—';
+  const s=(Math.abs(v)*100).toFixed(1)+'%';
+  return v>0?'+'+s:v<0?'-'+s:s;
 }
-function toTitle(s) { return String(s).replace(/\b\w/g,c=>c.toUpperCase()); }
+function dUp(v) { return v>0?`<span class="up">▲ ${fmtPct(v)}</span>`:v<0?`<span class="dn">▼ ${fmtPct(v)}</span>`:'—'; }
+function dInM(y,m) { return new Date(y,m+1,0).getDate(); }
+function status(msg, isErr) {
+  const el=document.getElementById('statusMsg');
+  el.textContent=msg; el.style.display=msg?'block':'none';
+  el.className=isErr?'error':'';
+}
+
+// ── DATE PARSING ──────────────────────────────────────────────────────────────
+function parseDK(k) { // "1-May-26" → {month,year}
+  const m=String(k).match(/^(\d{1,2})-([A-Za-z]{3,4})-(\d{2,4})$/);
+  if (!m) return null;
+  let yr=m[3]; if(yr.length===2) yr='20'+yr;
+  const idx=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    .findIndex(x=>m[2].toLowerCase()===x.toLowerCase());
+  return idx>=0?{month:idx,year:parseInt(yr)}:null;
+}
+function parseMK(k) { // "April'26" → {month,year}
+  const m=String(k).match(/^([A-Za-z]+)'(\d{2})$/);
+  if (!m) return null;
+  const mo=MK_MAP[m[1]];
+  return mo!==undefined?{month:mo,year:2000+parseInt(m[2])}:null;
+}
+
+// ── DATA LOAD ─────────────────────────────────────────────────────────────────
+async function loadData() {
+  const url=`https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/${GH_BRANCH}/${GH_FILE}?t=${Date.now()}`;
+  const r=await fetch(url); if(!r.ok) throw new Error('Cannot load latest.json');
+  DB=await r.json();
+  BLOCKED.forEach(c=>{
+    delete DB.records?.[c]; delete DB.monthlyArchive?.[c]; delete DB.userMappings?.[c];
+  });
+  document.getElementById('dataTag').textContent='Data through '+(DB.lastUpdated||'—');
+}
+
+// ── SERIES BUILDER ────────────────────────────────────────────────────────────
+function buildSeries(cids, winMonths) {
+  // Find max date in liveRecords
+  let maxM=0, maxY=2026;
+  for (const cid of Object.keys(DB.records||{})) {
+    for (const k of Object.keys(DB.records[cid].net||{})) {
+      const p=parseDK(k); if(!p) continue;
+      if(p.year>maxY||(p.year===maxY&&p.month>maxM)){maxY=p.year;maxM=p.month;}
+    }
+  }
+  const winStart=new Date(maxY, maxM-winMonths, 1);
+  const totals={};
+
+  for (const cid of cids) {
+    if(BLOCKED.has(cid)) continue;
+    const factor = cid===TRIP_CID ? TRIP_FACTOR : 1;
+    const meta = CID_MAP[cid]||(DB.userMappings&&DB.userMappings[cid]);
+    const name = meta ? meta.Name.toLowerCase().trim() : '';
+
+    // 1. masterDict — match by name substring
+    const mdKey = Object.keys(MD).find(k=>name===k||name.includes(k)||k.includes(name));
+    if (mdKey) {
+      for (const [mk,val] of Object.entries(MD[mdKey].history)) {
+        const p=parseMK(mk); if(!p) continue;
+        if(new Date(p.year,p.month,1)<winStart) continue;
+        if(p.year===maxY && p.month>maxM) continue; // future only
+        const key=`${p.year}-${String(p.month).padStart(2,'0')}`;
+        totals[key]=(totals[key]||0)+val*factor;
+      }
+    }
+
+    // 2. monthlyArchive (keys like "April'26")
+    for (const [mk,val] of Object.entries(DB.monthlyArchive?.[cid]||{})) {
+      const p=parseMK(mk); if(!p) continue;
+      if(new Date(p.year,p.month,1)<winStart) continue;
+      if(p.year===maxY && p.month>maxM) continue;
+      const key=`${p.year}-${String(p.month).padStart(2,'0')}`;
+      totals[key]=(totals[key]||0)+val*factor;
+    }
+
+    // 3. liveRecords — current month only, projected via day1-isolation
+    const netEntries=DB.records?.[cid]?.net||{};
+    let day1=0, rest=[];
+    for (const [dk,val] of Object.entries(netEntries)) {
+      const p=parseDK(dk); if(!p) continue;
+      if(p.year!==maxY||p.month!==maxM) continue;
+      parseInt(dk.split('-')[0])===1 ? day1+=val : rest.push(val);
+    }
+    if(day1!==0||rest.length>0) {
+      const daysInMo=dInM(maxY,maxM);
+      const proj = rest.length>0 ? day1+(rest.reduce((a,b)=>a+b,0)/rest.length)*(daysInMo-1) : day1;
+      const mkey=`${maxY}-${String(maxM).padStart(2,'0')}`;
+      totals[mkey]=(totals[mkey]||0)+proj*factor;
+    }
+  }
+
+  const series=Object.entries(totals)
+    .sort(([a],[b])=>a.localeCompare(b))
+    .map(([k,v])=>{const[yr,mo]=k.split('-').map(Number);return{year:yr,month:mo,value:v};});
+
+  return {series, maxM, maxY};
+}
+
+// ── FORECASTING ───────────────────────────────────────────────────────────────
+function safeVal(v) { return (v!==null&&isFinite(v))?v:null; }
+
+function wMA(s,k=3) { // geometrically weighted moving average
+  if(!s.length) return null;
+  k=Math.min(k,s.length);
+  const r=s.slice(-k).map(x=>x.value);
+  let wSum=0,tot=0;
+  for(let i=0;i<r.length;i++){const w=Math.pow(2,i);tot+=r[i]*w;wSum+=w;}
+  return safeVal(tot/wSum);
+}
+
+function dampedHolt(s,a=0.4,b=0.2,phi=0.85) {
+  if(s.length<4) return null;
+  const v=s.map(x=>x.value);
+  let l=v[0],tr=v[1]-v[0];
+  for(let i=1;i<v.length;i++){const lp=l;l=a*v[i]+(1-a)*(l+phi*tr);tr=b*(l-lp)+(1-b)*phi*tr;}
+  return safeVal(l+phi*tr);
+}
+
+function trimmedMean(s,k=6) {
+  if(s.length<2) return null;
+  const r=[...s.slice(-k).map(x=>x.value)].sort((a,b)=>a-b);
+  const t=r.length>4?r.slice(1,-1):r;
+  return safeVal(t.reduce((a,b)=>a+b,0)/t.length);
+}
+
+function cappedLinear(s) {
+  if(s.length<4) return null;
+  const r=s.slice(-8); const n=r.length;
+  const v=r.map(x=>x.value);
+  const xm=(n-1)/2, ym=v.reduce((a,b)=>a+b,0)/n;
+  const num=v.reduce((s,vi,i)=>s+(i-xm)*(vi-ym),0);
+  const den=v.reduce((s,_,i)=>s+(i-xm)**2,0);
+  const slope=den?num/den:0;
+  const pred=ym+slope*(n-1+1-xm);
+  const last=v[v.length-1];
+  if(!last) return safeVal(pred);
+  return safeVal(Math.min(last*1.2,Math.max(last*0.8,pred)));
+}
+
+function detectRegime(s) {
+  if(s.length<4) return 'plateau';
+  const r=s.slice(-6).map(x=>x.value), n=r.length;
+  const m3=r.slice(-3).reduce((a,b)=>a+b,0)/3;
+  const s3=Math.sqrt(r.slice(-3).reduce((a,v)=>a+(v-m3)**2,0)/3);
+  const cv=m3!==0?s3/Math.abs(m3):1;
+  const m6=r.reduce((a,b)=>a+b,0)/n, xm=(n-1)/2;
+  const num=r.reduce((s,v,i)=>s+(i-xm)*(v-m6),0), den=r.reduce((s,_,i)=>s+(i-xm)**2,0);
+  const slope=den?num/den:0, pct=m6!==0?slope/Math.abs(m6):0;
+  if(cv<0.15&&Math.abs(pct)<0.08) return 'plateau';
+  return pct>0.08?'growth':'decline';
+}
+
+function forecast(s, tgtMonth) {
+  if(s.length<2) return null;
+  const regime=detectRegime(s);
+  const methods={
+    plateau:[{name:'Weighted MA',val:wMA(s,3),w:0.60,desc:'Last 3 months geometrically weighted'},{name:'Damped Trend',val:dampedHolt(s),w:0.25,desc:"Holt's with φ=0.85 damping"},{name:'Trimmed Mean',val:trimmedMean(s,6),w:0.15,desc:'Last 6 months, outliers removed'}],
+    growth: [{name:'Damped Trend',val:dampedHolt(s),w:0.40,desc:"Holt's with damping"},{name:'Weighted MA',val:wMA(s,3),w:0.35,desc:'Recent momentum anchor'},{name:'Capped Linear',val:cappedLinear(s),w:0.25,desc:'OLS capped at ±20% MoM'}],
+    decline:[{name:'Weighted MA',val:wMA(s,3),w:0.55,desc:'Recent actuals — decline anchor'},{name:'Damped Trend',val:dampedHolt(s),w:0.30,desc:'Trend with damping'},{name:'Trimmed Mean',val:trimmedMean(s,6),w:0.15,desc:'Last 6 months, spike-filtered'}],
+  };
+  const valid=(methods[regime]||methods.plateau).filter(m=>m.val!==null);
+  const totalW=valid.reduce((s,m)=>s+m.w,0);
+  let raw = totalW>0 ? valid.reduce((s,m)=>s+m.val*(m.w/totalW),0) : (wMA(s,Math.min(3,s.length))||0);
+  if(regime==='decline') raw=Math.max(0,raw);
+  const normMethods=valid.map(m=>({...m,normW:totalW>0?m.w/totalW:0}));
+
+  // Seasonal factor — bounded ±15%, only if meaningful
+  let sFactor=null, sApplied=false;
+  const pairs=s.filter(x=>x.month===tgtMonth).map(x=>{
+    const prev=s.find(p=>p.month===tgtMonth&&p.year===x.year-1);
+    return (prev&&prev.value!==0)?x.value/prev.value:null;
+  }).filter(x=>x!==null);
+  if(pairs.length>0){
+    const avgR=pairs.reduce((a,b)=>a+b,0)/pairs.length;
+    sFactor=Math.min(1.15,Math.max(0.85,avgR));
+    if(Math.abs(sFactor-1)>0.03){raw=raw*sFactor;sApplied=true;}
+  }
+
+  let fc=isFinite(raw)?raw:(wMA(s,Math.min(3,s.length))||0);
+  fc=Math.max(0,fc);
+  const vals=valid.map(m=>m.val);
+  const meanV=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:fc;
+  const varV=vals.length?vals.reduce((s,v)=>s+(v-meanV)**2,0)/vals.length:0;
+  const std=Math.sqrt(varV);
+  const cv=meanV!==0?std/Math.abs(meanV):1;
+  const conf=Math.max(0.3,Math.min(0.98,1-cv));
+  return {fc,regime,methods:normMethods,conf,lo:Math.max(0,fc-std),hi:fc+std,sApplied,sFactor};
+}
+
+// ── FILTER ────────────────────────────────────────────────────────────────────
+function getCIDs(geo,book) {
+  return Object.keys(CID_MAP).filter(cid=>{
+    if(BLOCKED.has(cid)) return false;
+    const m=CID_MAP[cid];
+    if(geo!=='All'&&m.Geo!==geo) return false;
+    if(book!=='All'&&m.Type!==book) return false;
+    return true;
+  });
+}
 
 // ── MAIN ──────────────────────────────────────────────────────────────────────
 async function runForecast() {
-    const btn = document.getElementById('runBtn');
-    btn.disabled = true;
-    document.getElementById('loadingMsg').style.display = 'block';
-    document.getElementById('results').style.display = 'none';
-    document.getElementById('loadingMsg').textContent = 'Computing regime-aware forecast…';
+  const btn=document.getElementById('runBtn');
+  btn.disabled=true;
+  status('Computing forecast…');
+  document.getElementById('results').innerHTML='';
 
-    try {
-        if (!DB) await loadData();
+  try {
+    if(!DB) await loadData();
 
-        const geo    = document.getElementById('geoFilter').value;
-        const book   = document.getElementById('bookFilter').value;
-        const window_ = parseInt(document.getElementById('windowFilter').value);
+    const geo=document.getElementById('geoFilter').value;
+    const book=document.getElementById('bookFilter').value;
+    const win=parseInt(document.getElementById('windowFilter').value);
 
-        const cids = getFilteredCIDs(geo, book);
-        const { series, currentMonth, currentYear } = buildTimeSeries(cids, window_);
+    const cids=getCIDs(geo,book);
+    const {series,maxM,maxY}=buildSeries(cids,win);
 
-        if (series.length < 4) {
-            document.getElementById('loadingMsg').textContent = 'Not enough history for this filter. Try widening the window.';
-            btn.disabled = false; return;
-        }
-
-        // Target: next month
-        let tMonth = currentMonth + 1, tYear = currentYear;
-        if (tMonth > 11) { tMonth = 0; tYear++; }
-        const tgtLabel = `${MONTH_NAMES[tMonth]} ${tYear}`;
-
-        // Portfolio ensemble
-        const result = regimeEnsemble(series, tMonth);
-        if (!result) {
-            document.getElementById('loadingMsg').textContent = 'Could not compute forecast.';
-            btn.disabled = false; return;
-        }
-
-        // lastActual = projected current month (May) — day-1-isolated projection
-        // MoM = June forecast vs projected May (correct baseline)
-        const lastActual    = series[series.length - 1]; // projected current month (May)
-        const prevFullMonth = series.length >= 2 ? series[series.length - 2] : null; // last completed month (Apr) — for reference only
-        const momChange     = lastActual && lastActual.value !== 0
-            ? (result.forecast - lastActual.value) / Math.abs(lastActual.value)
-            : null;
-        const sameLastYear = series.find(s => s.month === tMonth && s.year === tYear - 1);
-        const yoyChange    = sameLastYear && sameLastYear.value !== 0 ? (result.forecast - sameLastYear.value) / Math.abs(sameLastYear.value) : null;
-
-        // Per-geo breakdown
-        const geoForecasts = [];
-        if (geo === 'All') {
-            for (const g of ['China','India','SEA','Korea','Vietnam','US BD','APAC - Others']) {
-                const gc = getFilteredCIDs(g, book);
-                if (!gc.length) continue;
-                const { series: gs } = buildTimeSeries(gc, window_);
-                if (gs.length < 2) continue;
-                const gf = regimeEnsemble(gs, tMonth);
-                if (!gf) continue;
-                if (gf.forecast < 0) gf.forecast = 0; // floor — negative geo total not actionable
-                geoForecasts.push({ geo: g, result: gf, last: gs[gs.length-1] });
-            }
-        }
-
-        // Regime distribution among accounts
-        let nPlateau=0, nGrowth=0, nDecline=0, nTotal=0;
-        const acctResults = [];
-        for (const cid of cids) {
-            const meta = cidGeoMap[cid] || (DB.userMappings && DB.userMappings[cid]);
-            if (!meta) continue;
-            const { series: as } = buildTimeSeries([cid], window_);
-            if (as.length < 3) continue;
-            const af = regimeEnsemble(as, tMonth);
-            if (!af) continue;
-            nTotal++;
-            if (af.regime === 'plateau') nPlateau++;
-            else if (af.regime === 'growth') nGrowth++;
-            else nDecline++;
-            if (af.forecast > 50)
-                acctResults.push({ cid, name: meta.Name, geo: meta.Geo, result: af, last: as[as.length-1] });
-        }
-        acctResults.sort((a,b) => b.result.forecast - a.result.forecast);
-
-        renderResults({ result, series, tMonth, tYear, tgtLabel, lastActual, prevFullMonth, momChange, yoyChange, sameLastYear, geoForecasts, acctResults, nPlateau, nGrowth, nDecline, nTotal, window_ });
-
-    } catch(e) {
-        document.getElementById('loadingMsg').textContent = 'Error: ' + e.message;
-        console.error(e);
+    if(series.length<3){
+      status('Not enough history — try widening the window or changing filters.',true);
+      btn.disabled=false; return;
     }
-    btn.disabled = false;
-    document.getElementById('loadingMsg').style.display = 'none';
+
+    // Target month
+    let tM=maxM+1, tY=maxY;
+    if(tM>11){tM=0;tY++;}
+    const tgtLabel=`${MONTH_NAMES[tM]} ${tY}`;
+
+    // Portfolio forecast
+    const res=forecast(series,tM);
+    if(!res){status('Could not compute — insufficient data.',true);btn.disabled=false;return;}
+
+    const curMonth=series[series.length-1]; // projected current month (May)
+    const prevFull=series.length>=2?series[series.length-2]:null; // last completed (April)
+    const momChange=curMonth&&curMonth.value!==0?(res.fc-curMonth.value)/Math.abs(curMonth.value):null;
+    const lyMonth=series.find(s=>s.month===tM&&s.year===tY-1);
+    const yoyChange=lyMonth&&lyMonth.value!==0?(res.fc-lyMonth.value)/Math.abs(lyMonth.value):null;
+
+    // Geo breakdowns
+    const geoBreaks=[];
+    if(geo==='All'){
+      for(const g of ['China','India','SEA','Korea','Vietnam','US BD','APAC - Others']){
+        const gc=getCIDs(g,book); if(!gc.length) continue;
+        const {series:gs}=buildSeries(gc,win); if(gs.length<2) continue;
+        const gf=forecast(gs,tM); if(!gf) continue;
+        const gLast=gs[gs.length-1];
+        const gMom=gLast&&gLast.value!==0?(gf.fc-gLast.value)/Math.abs(gLast.value):null;
+        geoBreaks.push({geo:g,fc:Math.max(0,gf.fc),regime:gf.regime,conf:gf.conf,mom:gMom});
+      }
+    }
+
+    // Account forecasts
+    const acctFc=[];
+    let nP=0,nG=0,nD=0,nT=0;
+    for(const cid of cids){
+      const m=CID_MAP[cid]; if(!m) continue;
+      const {series:as}=buildSeries([cid],win); if(as.length<2) continue;
+      const af=forecast(as,tM); if(!af) continue;
+      nT++; if(af.regime==='plateau')nP++;else if(af.regime==='growth')nG++;else nD++;
+      if(af.fc>50) acctFc.push({cid,name:m.Name,geo:m.Geo,fc:af.fc,last:as[as.length-1],regime:af.regime,mom:as.length>=2&&as[as.length-1].value!==0?(af.fc-as[as.length-1].value)/Math.abs(as[as.length-1].value):null});
+    }
+    acctFc.sort((a,b)=>b.fc-a.fc);
+
+    status('');
+    render({res,series,tM,tY,tgtLabel,curMonth,momChange,yoyChange,lyMonth,geoBreaks,acctFc,nP,nG,nD,nT,win,maxM,maxY});
+
+  } catch(e) {
+    status('Error: '+e.message,true);
+    console.error(e);
+  }
+  btn.disabled=false;
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
-function renderResults({ result, series, tMonth, tYear, tgtLabel, lastActual, prevFullMonth, momChange, yoyChange, sameLastYear, geoForecasts, acctResults, nPlateau, nGrowth, nDecline, nTotal, window_ }) {
+function render({res,series,tM,tY,tgtLabel,curMonth,momChange,yoyChange,lyMonth,geoBreaks,acctFc,nP,nG,nD,nT,win,maxM,maxY}) {
+  const rLbl=res.regime.charAt(0).toUpperCase()+res.regime.slice(1);
 
-    const regimeLbl = result.regime.charAt(0).toUpperCase() + result.regime.slice(1);
-    const regimeCls = `regime-${result.regime}`;
+  // Hero
+  const heroHTML=`
+  <div class="hero fade">
+    <div class="hero-cell primary">
+      <div class="hero-label">Forecast · ${tgtLabel}</div>
+      <div class="hero-val tnum">${fmtK(res.fc)}</div>
+      <div class="hero-sub">Range: ${fmtK(res.lo)} – ${fmtK(res.hi)}</div>
+      <span class="badge b-${res.regime}">${rLbl} regime</span>
+    </div>
+    <div class="hero-cell">
+      <div class="hero-label">vs ${curMonth?MONTH_NAMES[curMonth.month]+' (Projected)':'Last Month'}</div>
+      <div class="hero-val tnum">${momChange!==null?dUp(momChange):'—'}</div>
+      <div class="hero-sub">${curMonth?MONTH_NAMES[curMonth.month].slice(0,3)+' projected: '+fmtK(curMonth.value):''}</div>
+    </div>
+    <div class="hero-cell">
+      <div class="hero-label">vs Same Month LY</div>
+      <div class="hero-val tnum">${yoyChange!==null?dUp(yoyChange):'—'}</div>
+      <div class="hero-sub">${lyMonth?MONTH_NAMES[lyMonth.month].slice(0,3)+' '+lyMonth.year+': '+fmtK(lyMonth.value):'No prior year data'}</div>
+    </div>
+    <div class="hero-cell">
+      <div class="hero-label">Model Confidence</div>
+      <div class="hero-val tnum">${(res.conf*100).toFixed(0)}%</div>
+      <div class="hero-sub">${res.sApplied?'Seasonal adj ×'+res.sFactor.toFixed(2)+' applied':'No seasonal adj'}</div>
+    </div>
+  </div>`;
 
-    const dU = v => v > 0 ? `<span class="delta-up">▲ ${fmtPct(v)}</span>` : v < 0 ? `<span class="delta-dn">▼ ${fmtPct(v)}</span>` : '—';
+  // Methods
+  const maxV=Math.max(...res.methods.map(m=>Math.abs(m.val)));
+  const methodHTML=res.methods.map(m=>`
+  <div class="method-row">
+    <div><div class="method-name">${m.name}</div><div class="method-desc">${m.desc}</div></div>
+    <div><div class="mbar-wrap"><div class="mbar" style="width:${maxV>0?(Math.abs(m.val)/maxV*100):0}%"></div></div></div>
+    <div class="method-val tnum">${fmtK(m.val)}</div>
+  </div>`).join('');
 
-    // Hero
-    const heroHTML = `
-    <div class="forecast-hero fade-in">
-        <div class="hero-cell primary">
-            <div class="hero-label">Forecast · ${tgtLabel}</div>
-            <div class="hero-value tnum">${fmtK(result.forecast)}</div>
-            <div class="hero-sub">Range: ${fmtK(result.lo)} – ${fmtK(result.hi)}</div>
-            <span class="hero-badge ${regimeCls}">${regimeLbl} regime</span>
-        </div>
-        <div class="hero-cell">
-            <div class="hero-label">vs ${lastActual ? MONTH_NAMES[lastActual.month]+' (Projected)' : 'Last Month'}</div>
-            <div class="hero-value tnum">${momChange !== null ? dU(momChange) : '—'}</div>
-            <div class="hero-sub">${lastActual ? MONTH_NAMES[lastActual.month].slice(0,3)+' projected: '+fmtK(lastActual.value) : ''}</div>
-        </div>
-        <div class="hero-cell">
-            <div class="hero-label">vs Same Month LY</div>
-            <div class="hero-value tnum">${yoyChange !== null ? dU(yoyChange) : '—'}</div>
-            <div class="hero-sub">${sameLastYear ? MONTH_NAMES[sameLastYear.month].slice(0,3)+' '+sameLastYear.year+': '+fmtK(sameLastYear.value) : 'No prior year data'}</div>
-        </div>
-        <div class="hero-cell">
-            <div class="hero-label">Model Confidence</div>
-            <div class="hero-value tnum">${(result.confidence*100).toFixed(0)}%</div>
-            <div class="hero-sub">${result.seasonalApplied ? 'Seasonal adj. ×'+result.sFactor.toFixed(2)+' applied' : 'No seasonal adj. (data flat)'}</div>
-        </div>
-    </div>`;
+  // Regime bar
+  const pG=nT?(nG/nT*100).toFixed(0):0, pP=nT?(nP/nT*100).toFixed(0):0, pD=nT?(nD/nT*100).toFixed(0):0;
+  const regimeBarHTML=`
+  <div class="regime-bar">
+    <div class="regime-seg" style="width:${pG}%;background:#214295" title="Growth: ${nG}">${pG>8?pG+'% Growth':''}</div>
+    <div class="regime-seg" style="width:${pP}%;background:#5BA976" title="Plateau: ${nP}">${pP>8?pP+'% Plateau':''}</div>
+    <div class="regime-seg" style="width:${pD}%;background:#6E1B35" title="Decline: ${nD}">${pD>8?pD+'% Decline':''}</div>
+  </div>
+  <div style="display:flex;gap:16px;font-size:11px;color:#6b7280">
+    <span style="color:#214295;font-weight:700">■</span> Growth: ${nG}
+    <span style="color:#5BA976;font-weight:700">■</span> Plateau: ${nP}
+    <span style="color:#6E1B35;font-weight:700">■</span> Decline: ${nD}
+  </div>`;
 
-    // Regime distribution bar
-    const pPl = nTotal ? (nPlateau/nTotal*100).toFixed(0) : 0;
-    const pGr = nTotal ? (nGrowth /nTotal*100).toFixed(0) : 0;
-    const pDc = nTotal ? (nDecline/nTotal*100).toFixed(0) : 0;
-    const regimeBarHTML = `
-        <div style="margin-bottom:8px">
-            <div class="regime-bar-row">
-                <div class="regime-seg" style="width:${pGr}%;background:#214295" title="Growth">${pGr>8?pGr+'% Growth':''}</div>
-                <div class="regime-seg" style="width:${pPl}%;background:#5BA976" title="Plateau">${pPl>8?pPl+'% Plateau':''}</div>
-                <div class="regime-seg" style="width:${pDc}%;background:#6E1B35" title="Decline">${pDc>8?pDc+'% Decline':''}</div>
-            </div>
-        </div>
-        <div style="display:flex;gap:16px;font-size:11px;color:#6b7280">
-            <span><span style="color:#214295;font-weight:700">■</span> Growth: ${nGrowth} accounts</span>
-            <span><span style="color:#5BA976;font-weight:700">■</span> Plateau: ${nPlateau} accounts</span>
-            <span><span style="color:#6E1B35;font-weight:700">■</span> Decline: ${nDecline} accounts</span>
-        </div>`;
+  // Geo table
+  const geoRows=geoBreaks.sort((a,b)=>b.fc-a.fc).map(g=>`<tr>
+    <td><span class="dot" style="background:${GEO_COLORS[g.geo]||'#9ca3af'}"></span>${g.geo}</td>
+    <td class="tnum">${fmtK(g.fc)}</td>
+    <td>${g.mom!==null?dUp(g.mom):'—'}</td>
+    <td><span class="pill pill-${g.regime}">${g.regime}</span></td>
+    <td class="tnum">${(g.conf*100).toFixed(0)}%</td>
+    <td class="tnum">${res.fc>0?(g.fc/res.fc*100).toFixed(1)+'%':'—'}</td>
+  </tr>`).join('');
 
-    // Method rows
-    const maxVal = Math.max(...result.methodBreakdown.map(m=>Math.abs(m.val)));
-    const methodHTML = result.methodBreakdown.map(m => {
-        const pct = maxVal > 0 ? (Math.abs(m.val)/maxVal*100) : 0;
-        return `<div class="method-row">
-            <div>
-                <div class="method-name">${m.name}</div>
-                <div class="method-desc">${m.desc}</div>
-            </div>
-            <div><div class="method-bar-wrap"><div class="method-bar" style="width:${pct}%"></div></div></div>
-            <div class="method-val tnum">${fmtK(m.val)}</div>
-        </div>`;
-    }).join('');
+  // Account table
+  const acctRows=acctFc.slice(0,15).map((a,i)=>{
+    const pCls=a.mom===null?'pill-neu':a.mom>0.05?'pill-up':a.mom<-0.05?'pill-dn':'pill-neu';
+    return `<tr>
+      <td>${i+1}. ${a.name.slice(0,28)}</td>
+      <td><span class="dot" style="background:${GEO_COLORS[a.geo]||'#9ca3af'}"></span>${a.geo}</td>
+      <td class="tnum">${fmtK(a.fc)}</td>
+      <td class="tnum">${a.last?fmtK(a.last.value):'—'}</td>
+      <td><span class="pill ${pCls}">${a.mom!==null?fmtPct(a.mom):'—'}</span></td>
+      <td><span class="pill pill-${a.regime}">${a.regime}</span></td>
+    </tr>`;}).join('');
 
-    // Geo table
-    let geoHTML = '';
-    if (geoForecasts.length) {
-        const rows = geoForecasts.sort((a,b)=>b.result.forecast-a.result.forecast).map(g => {
-            const share = result.forecast > 0 ? g.result.forecast/result.forecast : 0;
-            const gMom  = g.last && g.last.value !== 0 ? (g.result.forecast - g.last.value)/Math.abs(g.last.value) : null;
-            const rCls  = `regime-${g.result.regime}`;
-            return `<tr>
-                <td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${GEO_COLORS[g.geo]||'#9ca3af'};margin-right:8px;vertical-align:middle"></span>${g.geo}</td>
-                <td class="tnum">${fmtK(g.result.forecast)}</td>
-                <td>${gMom!==null?dU(gMom):'—'}</td>
-                <td><span class="pill ${rCls}" style="font-size:10px">${g.result.regime}</span></td>
-                <td class="tnum">${(g.result.confidence*100).toFixed(0)}%</td>
-                <td class="tnum">${(share*100).toFixed(1)}%</td>
-            </tr>`;
-        }).join('');
-        geoHTML = `
-        <div class="full-col fade-in" style="animation-delay:.15s">
-            <div class="section-card">
-                <div class="section-title">Geo Breakdown</div>
-                <div class="section-sub">Per-market forecast · ${tgtLabel}</div>
-                <table class="geo-table">
-                    <thead><tr><th style="text-align:left">Market</th><th>Forecast</th><th>vs Last Mo</th><th>Regime</th><th>Confidence</th><th>Share</th></tr></thead>
-                    <tbody>${rows}</tbody>
-                </table>
-            </div>
-        </div>`;
-    }
+  // Chart
+  const labels=series.map(s=>`${MONTH_SHORT[s.month]} '${String(s.year).slice(-2)}`);
+  const vals=series.map(s=>s.value);
+  const tgtLbl=`${MONTH_SHORT[tM]} '${String(tY).slice(-2)}`;
+  const fcData=[...vals.map(()=>null),res.fc];
+  fcData[vals.length-1]=vals[vals.length-1];
 
-    // Chart
-    const labels = series.map(s => `${MONTH_NAMES[s.month].slice(0,3)} '${String(s.year).slice(-2)}`);
-    const values = series.map(s => s.value);
-    const fcLabel = `${MONTH_NAMES[tMonth].slice(0,3)} '${String(tYear).slice(-2)}`;
+  const html=`
+  ${heroHTML}
+  <div class="two fade">
+    <div class="card">
+      <div class="card-title">Portfolio Regime Mix</div>
+      <div class="card-sub">${win}-month window · ${nT} accounts classified</div>
+      ${regimeBarHTML}
+      <div style="margin-top:20px">
+        <div class="card-title" style="font-size:15px;margin-bottom:4px">Active: ${rLbl} Regime</div>
+        <div class="card-sub">Method weights for this forecast</div>
+        ${methodHTML}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Historical Trend + Forecast</div>
+      <div class="card-sub">Actuals (blue) · Forecast (green ◆)</div>
+      <div class="chart-wrap"><canvas id="fc-chart"></canvas></div>
+    </div>
+  </div>
+  ${geoBreaks.length?`
+  <div class="card fade">
+    <div class="card-title">Geo Breakdown</div>
+    <div class="card-sub">Per-market forecast · ${tgtLabel}</div>
+    <table><thead><tr><th style="text-align:left">Market</th><th>Forecast</th><th>vs May Proj</th><th>Regime</th><th>Confidence</th><th>Share</th></tr></thead>
+    <tbody>${geoRows}</tbody></table>
+  </div>`:''}
+  <div class="card fade">
+    <div class="card-title">Top Accounts — Forecast Ranking</div>
+    <div class="card-sub">Sorted by projected ${tgtLabel} net fee · Top 15</div>
+    <table><thead><tr><th style="text-align:left">Account</th><th style="text-align:left">Geo</th><th>Forecast</th><th>Last Actual</th><th>MoM</th><th>Regime</th></tr></thead>
+    <tbody>${acctRows}</tbody></table>
+  </div>
+  <div class="card fade">
+    <div class="card-title">Methodology</div>
+    <div class="card-sub">How this forecast was built</div>
+    <ul class="assume-list">
+      <li><strong>Regime detection:</strong> Each account classified as Plateau (CV&lt;15%, slope&lt;8%), Growth, or Decline from last 6 months.</li>
+      <li><strong>Plateau (${nP} accounts):</strong> Weighted MA 60% + Damped Holt 25% + Trimmed Mean 15%.</li>
+      <li><strong>Growth (${nG} accounts):</strong> Damped Holt 40% + Weighted MA 35% + Capped Linear (±20%) 25%.</li>
+      <li><strong>Decline (${nD} accounts):</strong> Weighted MA 55% + Damped Holt 30% + Trimmed Mean 15%. Floor at zero.</li>
+      <li><strong>Current month projection:</strong> Day 1 fixed fees treated as one-time; daily run rate from days 2–N projected over remaining days.</li>
+      <li><strong>Seasonal factor:</strong> Applied only if prior-year data exists and ratio deviates &gt;3% from 1.0. Capped at ±15%.</li>
+      <li><strong>Trip.com:</strong> 16.5% revenue-share factor applied throughout. IHG accounts permanently excluded.</li>
+    </ul>
+  </div>`;
 
-    // Account table
-    const acctRows = acctResults.slice(0,15).map((a,i) => {
-        const aMom = a.last && a.last.value !== 0 ? (a.result.forecast - a.last.value)/Math.abs(a.last.value) : null;
-        const pCls = aMom===null?'pill-neu':aMom>0.05?'pill-up':aMom<-0.05?'pill-dn':'pill-neu';
-        const rCls = `regime-${a.result.regime}`;
-        return `<tr>
-            <td>${i+1}. ${toTitle(a.name).slice(0,28)}</td>
-            <td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${GEO_COLORS[a.geo]||'#9ca3af'};margin-right:5px;vertical-align:middle"></span>${a.geo}</td>
-            <td class="tnum">${fmtK(a.result.forecast)}</td>
-            <td class="tnum">${a.last?fmtK(a.last.value):'—'}</td>
-            <td><span class="pill ${pCls}">${aMom!==null?fmtPct(aMom):'—'}</span></td>
-            <td><span class="pill ${rCls}" style="font-size:10px">${a.result.regime}</span></td>
-        </tr>`;
-    }).join('');
+  document.getElementById('results').innerHTML=html;
 
-    const html = `
-        ${heroHTML}
-        <div class="two-col fade-in" style="animation-delay:.08s">
-            <div class="section-card">
-                <div class="section-title">Portfolio Regime Mix</div>
-                <div class="section-sub">Account-level regime classification · ${window_}-month window</div>
-                ${regimeBarHTML}
-                <div style="margin-top:24px">
-                    <div class="section-title" style="font-size:15px;margin-bottom:4px">Active Regime: ${regimeLbl}</div>
-                    <div class="section-sub" style="margin-bottom:12px">Model weights applied to this forecast</div>
-                    <div class="method-grid">${methodHTML}</div>
-                </div>
-            </div>
-            <div class="section-card">
-                <div class="section-title">Historical Trend + Forecast</div>
-                <div class="section-sub">Actuals (solid blue) · Forecast point (green ◆)</div>
-                <div class="chart-wrap"><canvas id="forecastChart"></canvas></div>
-            </div>
-        </div>
-        ${geoHTML}
-        <div class="full-col fade-in" style="animation-delay:.22s">
-            <div class="section-card">
-                <div class="section-title">Top Accounts — Forecast Ranking</div>
-                <div class="section-sub">Sorted by projected ${tgtLabel} net fee · Top 15</div>
-                <table class="acct-table">
-                    <thead><tr>
-                        <th style="text-align:left">Account</th>
-                        <th style="text-align:left">Geo</th>
-                        <th>Forecast</th>
-                        <th>Last Actual</th>
-                        <th>MoM</th>
-                        <th>Regime</th>
-                    </tr></thead>
-                    <tbody>${acctRows}</tbody>
-                </table>
-            </div>
-        </div>
-        <div class="full-col fade-in" style="animation-delay:.28s">
-            <div class="section-card">
-                <div class="section-title">Methodology</div>
-                <div class="section-sub">How this forecast was computed</div>
-                <ul class="assumption-list">
-                    <li><strong>Regime detection:</strong> Each account is classified as Plateau (CV &lt;15%, slope &lt;8%), Growth, or Decline based on last 6 months. Portfolio regime = aggregate of all accounts.</li>
-                    <li><strong>Plateau accounts (${nPlateau}):</strong> Weighted MA 60% + Damped Holt 25% + Trimmed Mean 15%. No trend extrapolation.</li>
-                    <li><strong>Growth accounts (${nGrowth}):</strong> Damped Holt 40% + Weighted MA 35% + Capped Linear (±20% max MoM) 25%.</li>
-                    <li><strong>Decline accounts (${nDecline}):</strong> Weighted MA 55% + Damped Holt 30% + Trimmed Mean 15%. Hard floor at zero.</li>
-                    <li><strong>Seasonal adjustment:</strong> Applied only if seasonality detected (prior-year ratio available) AND ratio deviates &gt;3% from 1.0. Capped at ±15% adjustment.</li>
-                    <li><strong>No standalone YoY method:</strong> Year-on-year comparison is only used as a bounded seasonal factor, not a standalone forecast signal — avoids plateau inflation.</li>
-                    <li><strong>Trip.com:</strong> 16.5% revenue-share factor applied throughout all periods.</li>
-                    <li><strong>Current month projection:</strong> MTD actuals scaled to full-month equivalent by days elapsed.</li>
-                    <li><strong>IHG accounts excluded permanently.</strong></li>
-                </ul>
-            </div>
-        </div>`;
-
-    const el = document.getElementById('results');
-    el.innerHTML = html;
-    el.style.display = 'block';
-
-    // Draw chart
-    requestAnimationFrame(() => {
-        if (chartInstance) chartInstance.destroy();
-        Chart.defaults.font.family = '"DM Sans", sans-serif';
-        const ctx = document.getElementById('forecastChart');
-        if (!ctx) return;
-
-        // Bridge point for forecast line
-        const fcData = [...values.map(()=>null), result.forecast];
-        fcData[values.length - 1] = values[values.length - 1]; // connect
-
-        const loData = [...values.map(()=>null), result.lo];
-        loData[values.length - 1] = values[values.length - 1];
-        const hiData = [...values.map(()=>null), result.hi];
-        hiData[values.length - 1] = values[values.length - 1];
-
-        chartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [...labels, fcLabel],
-                datasets: [
-                    {
-                        label: 'Actuals',
-                        data: [...values, null],
-                        borderColor: '#214295',
-                        backgroundColor: 'rgba(33,66,149,0.07)',
-                        fill: true, tension: 0.25, borderWidth: 2.5,
-                        pointRadius: 2, pointBackgroundColor: '#214295',
-                    },
-                    {
-                        label: 'Forecast',
-                        data: fcData,
-                        borderColor: '#5BA976',
-                        backgroundColor: 'transparent',
-                        borderDash: [5,4], tension: 0.25, borderWidth: 2.5,
-                        pointRadius: [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6],
-                        pointStyle: 'rectRot',
-                        pointBackgroundColor: '#5BA976',
-                    },
-                    {
-                        label: 'High',
-                        data: hiData,
-                        borderColor: 'rgba(91,169,118,0.3)',
-                        backgroundColor: 'rgba(91,169,118,0.08)',
-                        fill: '+1', tension: 0.25, borderWidth: 1, borderDash: [2,4], pointRadius: 0,
-                    },
-                    {
-                        label: 'Low',
-                        data: loData,
-                        borderColor: 'rgba(91,169,118,0.3)',
-                        backgroundColor: 'transparent',
-                        fill: false, tension: 0.25, borderWidth: 1, borderDash: [2,4], pointRadius: 0,
-                    },
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8,
-                        filter: item => !['High','Low'].includes(item.text) } },
-                    tooltip: {
-                        backgroundColor: '#191919',
-                        titleFont: { family: 'Fraunces', size: 13 }, padding: 12,
-                        callbacks: { label: c => `${c.dataset.label}: ${c.raw!==null?fmtK(c.raw):'—'}` }
-                    }
-                },
-                scales: {
-                    x: { grid: { display: false }, ticks: { maxTicksLimit: 14, font: { size: 10 } } },
-                    y: { grid: { color: '#e5e7eb' }, ticks: { callback: v => fmtK(v), font: { size: 10 } } }
-                }
-            }
-        });
-    });
+  // Draw chart
+  requestAnimationFrame(()=>{
+    if(chartInst) chartInst.destroy();
+    Chart.defaults.font.family='"DM Sans",sans-serif';
+    const ctx=document.getElementById('fc-chart');
+    if(!ctx) return;
+    chartInst=new Chart(ctx,{type:'line',data:{
+      labels:[...labels,tgtLbl],
+      datasets:[
+        {label:'Actuals',data:[...vals,null],borderColor:'#214295',backgroundColor:'rgba(33,66,149,.07)',fill:true,tension:.25,borderWidth:2.5,pointRadius:2,pointBackgroundColor:'#214295'},
+        {label:'Forecast',data:fcData,borderColor:'#5BA976',backgroundColor:'transparent',borderDash:[5,4],tension:.25,borderWidth:2.5,pointRadius:[...vals.map(()=>0),6],pointStyle:'rectRot',pointBackgroundColor:'#5BA976'},
+      ]
+    },options:{
+      responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'top',align:'end',labels:{usePointStyle:true,boxWidth:8}},
+        tooltip:{backgroundColor:'#191919',padding:12,callbacks:{label:c=>`${c.dataset.label}: ${c.raw!==null?fmtK(c.raw):'—'}`}}
+      },
+      scales:{x:{grid:{display:false},ticks:{maxTicksLimit:14,font:{size:10}}},y:{grid:{color:'#e5e7eb'},ticks:{callback:v=>fmtK(v),font:{size:10}}}}
+    }});
+  });
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
-window.onerror = (msg, src, line, col, err) => {
-    document.getElementById('loadingMsg').style.display = 'block';
-    document.getElementById('loadingMsg').textContent = 'JS Error: ' + msg + ' (line ' + line + ')';
-    return true;
-};
-
-(async () => {
-    try {
-        document.getElementById('loadingMsg').style.display = 'block';
-        document.getElementById('loadingMsg').textContent = 'Loading data…';
-        await loadData();
-        document.getElementById('loadingMsg').style.display = 'none';
-        runForecast();
-    } catch(e) {
-        document.getElementById('loadingMsg').textContent = 'Could not load data: ' + e.message;
-    }
+(async()=>{
+  try {
+    status('Loading data…');
+    await loadData();
+    status('');
+  } catch(e) {
+    status('Could not load data: '+e.message,true);
+  }
 })();
 </script>
 </body>
