@@ -229,26 +229,35 @@ function buildTimeSeries(cids, windowMonths) {
             }
         }
 
-        // liveRecords: project current month to full month
+        // liveRecords: project current (partial) month to full month.
+        // Day 1 always contains bulk fixed fees — excluded from run rate, added back as-is.
+        // Projection = day1 + avg(days 2..N) × (daysInMonth - 1)
         if (DB.records && DB.records[cid]) {
             const netEntries = DB.records[cid].net || {};
-            const byMonth = {};
+            // Group by month, separating day 1 from the rest
+            const byMonthEntries = {};
             for (const [dk, val] of Object.entries(netEntries)) {
                 const p = dateKeyParts(dk); if (!p) continue;
-                const key = `${p.year}-${String(p.month).padStart(2,'0')}`;
-                byMonth[key] = (byMonth[key] || 0) + val;
+                const mkey = `${p.year}-${String(p.month).padStart(2,'0')}`;
+                if (!byMonthEntries[mkey]) byMonthEntries[mkey] = { day1: 0, rest: [] };
+                const dayNum = parseInt(dk.split('-')[0]);
+                if (dayNum === 1) byMonthEntries[mkey].day1 += val;
+                else              byMonthEntries[mkey].rest.push(val);
             }
-            for (const [mkey, val] of Object.entries(byMonth)) {
+            for (const [mkey, { day1, rest }] of Object.entries(byMonthEntries)) {
                 const [yr, mo] = mkey.split('-').map(Number);
                 const dt = new Date(yr, mo, 1);
                 if (dt < windowStart) continue;
-                // Project to full month
                 const daysIn = getDaysInMonth(yr, mo);
-                const daysWithData = Object.keys(netEntries).filter(dk => {
-                    const p = dateKeyParts(dk);
-                    return p && p.year === yr && p.month === mo;
-                }).length;
-                const projected = daysWithData > 0 ? val * (daysIn / Math.min(daysWithData, daysIn)) : val;
+                let projected;
+                if (rest.length === 0) {
+                    // Only day 1 data — cannot extrapolate run rate, use as-is
+                    projected = day1;
+                } else {
+                    // Run rate from days 2..N projected over remaining (daysIn - 1) days
+                    const dailyAvg = rest.reduce((a,b) => a+b, 0) / rest.length;
+                    projected = day1 + dailyAvg * (daysIn - 1);
+                }
                 totals[mkey] = (totals[mkey] || 0) + projected * factor;
             }
         }
