@@ -94,7 +94,7 @@
     <div class="flex gap-6 pb-4 border-b border-gray-200 mb-8">
         <div>
             <label class="block text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Market Segment</label>
-            <select id="filterMarket" class="bg-transparent text-lg font-serif text-tyroo-ink focus:outline-none cursor-pointer border-b border-transparent hover:border-gray-300 transition-colors" onchange="renderDashboard()">
+            <select id="filterMarket" class="bg-transparent text-lg font-serif text-tyroo-ink focus:outline-none cursor-pointer border-b border-transparent hover:border-gray-300 transition-colors" onchange="renderDashboard();syncLedgerGeo()">
                 <option value="All">Global Overview</option>
             </select>
         </div>
@@ -132,7 +132,280 @@
         <h2 class="font-serif text-2xl text-tyroo-ink mb-4">Portfolio Insights</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="insightsContainer"></div>
     </div>
+
+    <!-- ── ACCOUNT LEDGER ─────────────────────────────────────────── -->
+    <div class="mb-12">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="font-serif text-2xl text-tyroo-ink">Account Ledger</h2>
+            <span class="text-xs font-semibold text-gray-400 uppercase tracking-widest">Monthly Net ($) · All sources combined</span>
+        </div>
+
+        <!-- Ledger controls -->
+        <div class="flex flex-wrap gap-4 items-end mb-4 bg-white border border-gray-200 p-4">
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Search Account</label>
+                <input id="ledgerSearch" type="text" placeholder="Name or CID…"
+                    class="border border-gray-300 px-3 py-1.5 text-sm font-sans w-56 focus:outline-none focus:border-tyroo-blue"
+                    oninput="renderLedger()" />
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Geo Filter</label>
+                <select id="ledgerGeo" class="border border-gray-300 px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-tyroo-blue" onchange="renderLedger()">
+                    <option value="All">All Geos</option>
+                    <option value="China">China</option>
+                    <option value="India">India</option>
+                    <option value="SEA">SEA</option>
+                    <option value="Korea">Korea</option>
+                    <option value="Vietnam">Vietnam</option>
+                    <option value="US BD">US BD</option>
+                    <option value="APAC - Others">APAC - Others</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">Book</label>
+                <select id="ledgerBook" class="border border-gray-300 px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-tyroo-blue" onchange="renderLedger()">
+                    <option value="All">All Books</option>
+                    <option value="Existing Book">Existing</option>
+                    <option value="New Book">New</option>
+                </select>
+            </div>
+            <div class="ml-auto flex items-center gap-3">
+                <span id="ledgerCount" class="text-xs text-gray-400 font-semibold uppercase tracking-wider"></span>
+                <button onclick="exportLedgerCSV()" class="text-xs bg-tyroo-ink text-white px-3 py-1.5 font-semibold uppercase tracking-wider hover:bg-tyroo-blue transition-colors">Export CSV</button>
+            </div>
+        </div>
+
+        <!-- Ledger table -->
+        <div class="overflow-x-auto border border-gray-200 shadow-sm" style="max-height:600px;overflow-y:auto">
+            <table id="ledgerTable" class="w-full text-left bg-white font-sans" style="font-size:12px;border-collapse:collapse;min-width:900px">
+                <thead id="ledgerHead" style="position:sticky;top:0;z-index:10;background:#fff;border-bottom:2px solid #191919"></thead>
+                <tbody id="ledgerBody"></tbody>
+            </table>
+        </div>
+    </div>
 </div>
+
+<style>
+    /* Ledger table styles */
+    #ledgerTable th {
+        padding: 8px 10px; font-size: 10px; text-transform: uppercase;
+        letter-spacing: .1em; font-weight: 700; color: #6b7280;
+        white-space: nowrap; cursor: pointer; user-select: none;
+        border-right: 1px solid #e5e7eb; background: #f9fafb;
+    }
+    #ledgerTable th:hover { background: #f3f4f6; color: #191919; }
+    #ledgerTable th.sort-asc::after  { content: ' ↑'; color: #214295; }
+    #ledgerTable th.sort-desc::after { content: ' ↓'; color: #214295; }
+    #ledgerTable th.sticky-col { position: sticky; left: 0; z-index: 11; background: #f9fafb; }
+    #ledgerTable th.sticky-col2 { position: sticky; left: 160px; z-index: 11; background: #f9fafb; }
+    #ledgerTable td {
+        padding: 7px 10px; border-bottom: 1px solid #f3f4f6;
+        border-right: 1px solid #f3f4f6; white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+    #ledgerTable td.sticky-col  { position: sticky; left: 0;     z-index: 1; background: #fff; font-weight: 600; border-right: 2px solid #e5e7eb; }
+    #ledgerTable td.sticky-col2 { position: sticky; left: 160px; z-index: 1; background: #fff; border-right: 1px solid #e5e7eb; }
+    #ledgerTable tr:hover td { background: #f0f9ff !important; }
+    #ledgerTable tr:hover td.sticky-col,
+    #ledgerTable tr:hover td.sticky-col2 { background: #e0f2fe !important; }
+    .ldg-pos { color: #191919; }
+    .ldg-neg { color: #6E1B35; }
+    .ldg-mtd { background: #eff6ff; font-weight: 600; }
+    .ldg-mtd.sticky-col { background: #eff6ff !important; }
+    .geo-dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; vertical-align:middle; flex-shrink:0; }
+</style>
+
+<script>
+// ── LEDGER STATE ─────────────────────────────────────────────────────────────
+let ledgerSortCol  = null;   // column index
+let ledgerSortDir  = 'desc'; // 'asc' | 'desc'
+let ledgerData     = [];     // flat rows, built once after renderDashboard
+
+const GEO_DOT_COLORS = {
+    'China':'#214295','India':'#5BA976','SEA':'#025450',
+    'Korea':'#c97e1a','Vietnam':'#3b82f6','US BD':'#6E1B35','APAC - Others':'#6b7280'
+};
+
+// Called after every renderDashboard() — rebuilds ledger data from current accounts
+function buildLedgerData() {
+    const accounts = buildAccountMap();
+
+    // Determine column months: last 12 full months + current (MTD)
+    let maxDate = new Date();
+    for (const acc of Object.values(accounts)) {
+        for (const k of Object.keys(acc.liveNet)) {
+            const d = parseKey(k); if (d && d > maxDate) maxDate = d;
+        }
+    }
+    const currentMonth = maxDate.getMonth(), currentYear = maxDate.getFullYear();
+
+    // Build ordered month list: 12 months before current + current
+    const months = [];
+    for (let i = 11; i >= 1; i--) {
+        let m = currentMonth - i, y = currentYear;
+        if (m < 0) { m += 12; y--; }
+        months.push({ month: m, year: y, isMTD: false });
+    }
+    months.push({ month: currentMonth, year: currentYear, isMTD: true });
+
+    // Build one row per account
+    const rows = [];
+    for (const acc of Object.values(accounts)) {
+        if (BLOCKED_CIDS.has(acc.cid)) continue;
+        const trip = acc.name.toLowerCase().includes('trip.com') ? 0.165 : 1;
+
+        const rowVals = months.map(({ month, year, isMTD }) => {
+            let val = computePeriodNet(acc, [month], year) * trip;
+            return val;
+        });
+
+        // Only include if account has any non-zero data in the window
+        if (rowVals.every(v => v === 0)) continue;
+
+        rows.push({
+            cid:  acc.cid,
+            name: acc.name,
+            geo:  acc.geo,
+            type: acc.type,
+            vals: rowVals,   // one value per month column
+        });
+    }
+
+    ledgerData = { rows, months };
+}
+
+function renderLedger() {
+    if (!ledgerData || !ledgerData.rows) return;
+
+    const { rows, months } = ledgerData;
+    const search = (document.getElementById('ledgerSearch').value || '').toLowerCase().trim();
+    const geo    = document.getElementById('ledgerGeo').value;
+    const book   = document.getElementById('ledgerBook').value;
+
+    // Filter
+    let filtered = rows.filter(r => {
+        if (geo  !== 'All' && r.geo  !== geo)  return false;
+        if (book !== 'All' && r.type !== book) return false;
+        if (search && !r.name.toLowerCase().includes(search) && !r.cid.includes(search)) return false;
+        return true;
+    });
+
+    // Sort
+    if (ledgerSortCol !== null) {
+        filtered.sort((a, b) => {
+            let av, bv;
+            if (ledgerSortCol === 0)      { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
+            else if (ledgerSortCol === 1) { av = a.geo;                bv = b.geo; }
+            else                          { av = a.vals[ledgerSortCol - 2] || 0; bv = b.vals[ledgerSortCol - 2] || 0; }
+            if (av < bv) return ledgerSortDir === 'asc' ? -1 : 1;
+            if (av > bv) return ledgerSortDir === 'asc' ? 1 : -1;
+            return 0;
+        });
+    } else {
+        // Default: sort by most recent full month desc
+        const lastFullIdx = months.length - 2;
+        filtered.sort((a,b) => (b.vals[lastFullIdx]||0) - (a.vals[lastFullIdx]||0));
+    }
+
+    document.getElementById('ledgerCount').textContent = `${filtered.length} accounts`;
+
+    // Build header
+    const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const headCols = months.map((m, i) => {
+        const colIdx = i + 2;
+        const label  = m.isMTD
+            ? `${MONTH_SHORT[m.month]} '${String(m.year).slice(-2)} <span style="color:#214295">(MTD)</span>`
+            : `${MONTH_SHORT[m.month]} '${String(m.year).slice(-2)}`;
+        const sortCls = ledgerSortCol === colIdx ? (ledgerSortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
+        return `<th class="${sortCls}" style="text-align:right" onclick="sortLedger(${colIdx})">${label}</th>`;
+    }).join('');
+
+    const sc0 = ledgerSortCol === 0 ? (ledgerSortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
+    const sc1 = ledgerSortCol === 1 ? (ledgerSortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
+
+    document.getElementById('ledgerHead').innerHTML = `<tr>
+        <th class="sticky-col ${sc0}" style="min-width:160px;left:0" onclick="sortLedger(0)">Account</th>
+        <th class="sticky-col2 ${sc1}" style="min-width:90px;left:160px" onclick="sortLedger(1)">Geo</th>
+        ${headCols}
+    </tr>`;
+
+    // Build body
+    const fmt = v => {
+        if (v === 0 || v === null || v === undefined) return '<span style="color:#d1d5db">—</span>';
+        const abs = Math.abs(v);
+        const s   = abs >= 1000 ? '$' + (abs/1000).toFixed(1) + 'K' : '$' + abs.toFixed(0);
+        return v < 0 ? `<span class="ldg-neg">-${s}</span>` : `<span class="ldg-pos">${s}</span>`;
+    };
+
+    const bodyHTML = filtered.map(r => {
+        const dot  = `<span class="geo-dot" style="background:${GEO_DOT_COLORS[r.geo]||'#9ca3af'}"></span>`;
+        const name = r.name.length > 22 ? r.name.slice(0,22)+'…' : r.name;
+        const typeBadge = r.type === 'New Book'
+            ? '<span style="font-size:9px;background:#fff9e6;color:#854d0e;font-weight:700;padding:1px 5px;margin-left:4px">NEW</span>'
+            : '';
+
+        const cells = r.vals.map((v, i) => {
+            const isMTD = months[i].isMTD;
+            return `<td class="${isMTD ? 'ldg-mtd' : ''}" style="text-align:right">${fmt(v)}</td>`;
+        }).join('');
+
+        return `<tr>
+            <td class="sticky-col" title="${r.name} (${r.cid})">${name}${typeBadge}</td>
+            <td class="sticky-col2" style="color:#6b7280;font-size:11px">${dot}${r.geo}</td>
+            ${cells}
+        </tr>`;
+    }).join('');
+
+    document.getElementById('ledgerBody').innerHTML = bodyHTML || `<tr><td colspan="${months.length + 2}" style="text-align:center;padding:32px;color:#9ca3af">No accounts match your filters</td></tr>`;
+}
+
+function sortLedger(colIdx) {
+    if (ledgerSortCol === colIdx) {
+        ledgerSortDir = ledgerSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+        ledgerSortCol = colIdx;
+        ledgerSortDir = colIdx <= 1 ? 'asc' : 'desc';
+    }
+    renderLedger();
+}
+
+function exportLedgerCSV() {
+    if (!ledgerData || !ledgerData.rows) return;
+    const { rows, months } = ledgerData;
+    const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const geo  = document.getElementById('ledgerGeo').value;
+    const book = document.getElementById('ledgerBook').value;
+    const search = (document.getElementById('ledgerSearch').value || '').toLowerCase();
+
+    const filtered = rows.filter(r => {
+        if (geo !== 'All' && r.geo !== geo) return false;
+        if (book !== 'All' && r.type !== book) return false;
+        if (search && !r.name.toLowerCase().includes(search) && !r.cid.includes(search)) return false;
+        return true;
+    });
+
+    const header = ['Account','CID','Geo','Type', ...months.map(m =>
+        `${MONTH_SHORT[m.month]} ${m.year}${m.isMTD?' (MTD)':''}`)].join(',');
+    const csvRows = filtered.map(r =>
+        [`"${r.name}"`, r.cid, r.geo, r.type, ...r.vals.map(v => v !== 0 ? v.toFixed(0) : '')].join(',')
+    );
+    const csv  = [header, ...csvRows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href: url, download: `TyrooCJ_AccountLedger_${new Date().toISOString().slice(0,10)}.csv` });
+    a.click(); URL.revokeObjectURL(url);
+}
+
+// Sync ledger geo filter when master filter changes
+function syncLedgerGeo() {
+    const masterGeo = document.getElementById('filterMarket').value;
+    const ledgerGeoEl = document.getElementById('ledgerGeo');
+    if (ledgerGeoEl && masterGeo !== 'All') {
+        ledgerGeoEl.value = masterGeo;
+    }
+    renderLedger();
+}
+</script>
 
 <script>
 const GITHUB_OWNER = 'TyrooCJ';
@@ -515,6 +788,9 @@ function renderDashboard() {
     renderTable(stats,scope,{isUnified,finalAOP,finalCosts,delta,cm,periodLabel,reviewType,daysPassedCurrent,prevLabel,prevYrLabel});
     renderChart(accounts,{currentPeriodMonths,currentYear,marketFilter,typeFilter,isUnified});
     renderInsights(scope,stats,{isUnified,reviewType});
+    // Build ledger after accounts are assembled, then sync geo filter
+    buildLedgerData();
+    syncLedgerGeo();
 }
 
 // ── KPI RIBBON ────────────────────────────────────────────────
