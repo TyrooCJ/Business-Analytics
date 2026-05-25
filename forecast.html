@@ -205,13 +205,11 @@ function buildTimeSeries(cids, windowMonths) {
         const name   = meta ? meta.Name.toLowerCase() : '';
 
         // masterDict match
-        // Full bidirectional substring match — same logic as dashboard's findMasterKey()
-        const masterKey = Object.keys(masterDict).find(k => {
-            const nl = name.toLowerCase().trim();
-            return nl === k || nl.includes(k) || k.includes(nl) ||
-                   nl.replace(/[^a-z0-9]/g,'').includes(k.replace(/[^a-z0-9]/g,'').slice(0,10)) ||
-                   k.replace(/[^a-z0-9]/g,'').includes(nl.replace(/[^a-z0-9]/g,'').slice(0,10));
-        });
+        // Bidirectional substring match
+        const _nl = name.toLowerCase().trim();
+        const masterKey = Object.keys(masterDict).find(k =>
+            _nl === k || _nl.includes(k) || k.includes(_nl)
+        );
         if (masterKey) {
             for (const [mk, val] of Object.entries(masterDict[masterKey].history)) {
                 const p = parseMonthKey(mk); if (!p) continue;
@@ -823,6 +821,12 @@ function renderResults({ result, series, tMonth, tYear, tgtLabel, lastActual, pr
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
+window.onerror = (msg, src, line, col, err) => {
+    document.getElementById('loadingMsg').style.display = 'block';
+    document.getElementById('loadingMsg').textContent = 'JS Error: ' + msg + ' (line ' + line + ')';
+    return true;
+};
+
 (async () => {
     try {
         document.getElementById('loadingMsg').style.display = 'block';
