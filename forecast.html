@@ -205,9 +205,13 @@ function buildTimeSeries(cids, windowMonths) {
         const name   = meta ? meta.Name.toLowerCase() : '';
 
         // masterDict match
-        const masterKey = Object.keys(masterDict).find(k =>
-            name.includes(k.slice(0,8)) || k.includes(name.slice(0,8))
-        );
+        // Full bidirectional substring match — same logic as dashboard's findMasterKey()
+        const masterKey = Object.keys(masterDict).find(k => {
+            const nl = name.toLowerCase().trim();
+            return nl === k || nl.includes(k) || k.includes(nl) ||
+                   nl.replace(/[^a-z0-9]/g,'').includes(k.replace(/[^a-z0-9]/g,'').slice(0,10)) ||
+                   k.replace(/[^a-z0-9]/g,'').includes(nl.replace(/[^a-z0-9]/g,'').slice(0,10));
+        });
         if (masterKey) {
             for (const [mk, val] of Object.entries(masterDict[masterKey].history)) {
                 const p = parseMonthKey(mk); if (!p) continue;
@@ -527,9 +531,9 @@ async function runForecast() {
                 const gc = getFilteredCIDs(g, book);
                 if (!gc.length) continue;
                 const { series: gs } = buildTimeSeries(gc, window_);
-                if (gs.length < 4) continue;
+                if (gs.length < 2) continue;
                 const gf = regimeEnsemble(gs, tMonth);
-                if (!gf) continue;
+                if (!gf || gf.forecast <= 0) continue;
                 geoForecasts.push({ geo: g, result: gf, last: gs[gs.length-1] });
             }
         }
