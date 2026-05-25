@@ -316,7 +316,8 @@ function forecast(s, tgtMonth) {
     growth: [{name:'Damped Trend',val:dampedHolt(s),w:0.40,desc:"Holt's with damping"},{name:'Weighted MA',val:wMA(s,3),w:0.35,desc:'Recent momentum anchor'},{name:'Capped Linear',val:cappedLinear(s),w:0.25,desc:'OLS capped at ±20% MoM'}],
     decline:[{name:'Weighted MA',val:wMA(s,3),w:0.55,desc:'Recent actuals — decline anchor'},{name:'Damped Trend',val:dampedHolt(s),w:0.30,desc:'Trend with damping'},{name:'Trimmed Mean',val:trimmedMean(s,6),w:0.15,desc:'Last 6 months, spike-filtered'}],
   };
-  const valid=(methods[regime]||methods.plateau).filter(m=>m.val!==null);
+  // Floor individual method values at 0 — prevents one negative outlier dragging blend below zero
+  const valid=(methods[regime]||methods.plateau).filter(m=>m.val!==null).map(m=>({...m,val:Math.max(0,m.val)}));
   const totalW=valid.reduce((s,m)=>s+m.w,0);
   let raw = totalW>0 ? valid.reduce((s,m)=>s+m.val*(m.w/totalW),0) : (wMA(s,Math.min(3,s.length))||0);
   if(regime==='decline') raw=Math.max(0,raw);
