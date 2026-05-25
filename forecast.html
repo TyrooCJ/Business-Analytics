@@ -379,7 +379,7 @@ function seasonalFactor(series, targetMonth) {
 
 // ── REGIME-AWARE ENSEMBLE ─────────────────────────────────────────────────────
 function regimeEnsemble(series, targetMonth) {
-    if (series.length < 3) return null;
+    if (series.length < 2) return null;
     const regime = detectRegime(series);
 
     const wma    = weightedMA(series, 3);
@@ -400,8 +400,8 @@ function regimeEnsemble(series, targetMonth) {
             { name: 'Trimmed Mean',      val: trimmed, w: w.trimmed, desc: 'Last 6 months, outliers removed' },
         ].filter(m => m.val !== null && isFinite(m.val));
         const totalW = valid.reduce((s,m)=>s+m.w, 0);
-        raw = valid.reduce((s,m) => s + m.val * (m.w/totalW), 0);
-        methodBreakdown = valid.map(m => ({ ...m, normW: m.w/totalW }));
+        raw = totalW > 0 ? valid.reduce((s,m) => s + m.val * (m.w/totalW), 0) : (weightedMA(series,3) || 0);
+        methodBreakdown = valid.map(m => ({ ...m, normW: totalW>0 ? m.w/totalW : 0 }));
 
     } else if (regime === 'growth') {
         // Growth: let damped trend lead, but cap it
@@ -412,8 +412,8 @@ function regimeEnsemble(series, targetMonth) {
             { name: 'Capped Linear Trend', val: linCap, w: w.linCap, desc: 'OLS trend, capped at ±20% MoM' },
         ].filter(m => m.val !== null && isFinite(m.val));
         const totalW = valid.reduce((s,m)=>s+m.w, 0);
-        raw = valid.reduce((s,m) => s + m.val * (m.w/totalW), 0);
-        methodBreakdown = valid.map(m => ({ ...m, normW: m.w/totalW }));
+        raw = totalW > 0 ? valid.reduce((s,m) => s + m.val * (m.w/totalW), 0) : (weightedMA(series,3) || 0);
+        methodBreakdown = valid.map(m => ({ ...m, normW: totalW>0 ? m.w/totalW : 0 }));
 
     } else {
         // Decline: weight recent actuals heavily, floor at zero
@@ -449,6 +449,10 @@ function regimeEnsemble(series, targetMonth) {
     const lo  = Math.max(0, forecast - std);
     const hi  = forecast + std;
 
+    // Guard against NaN/Infinity from edge cases
+    if (!isFinite(forecast)) forecast = weightedMA(series, Math.min(3, series.length)) || 0;
+    forecast = Math.max(0, forecast);
+    lo = Math.max(0, lo);
     return { forecast, regime, methodBreakdown, confidence, lo, hi, seasonalApplied, sFactor };
 }
 
@@ -533,7 +537,8 @@ async function runForecast() {
                 const { series: gs } = buildTimeSeries(gc, window_);
                 if (gs.length < 2) continue;
                 const gf = regimeEnsemble(gs, tMonth);
-                if (!gf || gf.forecast <= 0) continue;
+                if (!gf) continue;
+                if (gf.forecast < 0) gf.forecast = 0; // floor — negative geo total not actionable
                 geoForecasts.push({ geo: g, result: gf, last: gs[gs.length-1] });
             }
         }
