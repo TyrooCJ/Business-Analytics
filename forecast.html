@@ -212,18 +212,19 @@ function buildTimeSeries(cids, windowMonths) {
             for (const [mk, val] of Object.entries(masterDict[masterKey].history)) {
                 const p = parseMonthKey(mk); if (!p) continue;
                 const dt = new Date(p.year, p.month, 1);
-                if (dt < windowStart || (p.year === maxYear && p.month >= maxMonth)) continue;
+                if (dt < windowStart || (p.year === maxYear && p.month > maxMonth)) continue;
                 const key = `${p.year}-${String(p.month).padStart(2,'0')}`;
                 totals[key] = (totals[key] || 0) + val * factor;
             }
         }
 
-        // monthlyArchive (daily keys)
+        // monthlyArchive — keys are monthly format "April'26" (from admin rollup)
+        // Must use parseMonthKey(), not dateKeyParts()
         if (DB.monthlyArchive && DB.monthlyArchive[cid]) {
-            for (const [dk, val] of Object.entries(DB.monthlyArchive[cid])) {
-                const p = dateKeyParts(dk); if (!p) continue;
+            for (const [mk, val] of Object.entries(DB.monthlyArchive[cid])) {
+                const p = parseMonthKey(mk); if (!p) continue;
                 const dt = new Date(p.year, p.month, 1);
-                if (dt < windowStart || (p.year === maxYear && p.month >= maxMonth)) continue;
+                if (dt < windowStart || (p.year === maxYear && p.month > maxMonth)) continue;
                 const key = `${p.year}-${String(p.month).padStart(2,'0')}`;
                 totals[key] = (totals[key] || 0) + val * factor;
             }
