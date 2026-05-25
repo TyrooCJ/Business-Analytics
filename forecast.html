@@ -230,25 +230,24 @@ function buildTimeSeries(cids, windowMonths) {
         }
 
         // liveRecords: project current (partial) month to full month.
+        // ONLY the current month (maxMonth/maxYear) is projected — past months in liveRecords
+        // are already in masterDict or monthlyArchive so we skip them.
         // Day 1 always contains bulk fixed fees — excluded from run rate, added back as-is.
         // Projection = day1 + avg(days 2..N) × (daysInMonth - 1)
         if (DB.records && DB.records[cid]) {
             const netEntries = DB.records[cid].net || {};
-            // Group by month, separating day 1 from the rest
-            const byMonthEntries = {};
+            // Only process the current month — all others are in masterDict/archive already
+            const mkey = `${maxYear}-${String(maxMonth).padStart(2,'0')}`;
+            let day1 = 0, rest = [];
             for (const [dk, val] of Object.entries(netEntries)) {
                 const p = dateKeyParts(dk); if (!p) continue;
-                const mkey = `${p.year}-${String(p.month).padStart(2,'0')}`;
-                if (!byMonthEntries[mkey]) byMonthEntries[mkey] = { day1: 0, rest: [] };
+                if (p.year !== maxYear || p.month !== maxMonth) continue;
                 const dayNum = parseInt(dk.split('-')[0]);
-                if (dayNum === 1) byMonthEntries[mkey].day1 += val;
-                else              byMonthEntries[mkey].rest.push(val);
+                if (dayNum === 1) day1 += val;
+                else              rest.push(val);
             }
-            for (const [mkey, { day1, rest }] of Object.entries(byMonthEntries)) {
-                const [yr, mo] = mkey.split('-').map(Number);
-                const dt = new Date(yr, mo, 1);
-                if (dt < windowStart) continue;
-                const daysIn = getDaysInMonth(yr, mo);
+            if (day1 !== 0 || rest.length > 0) {
+                const daysIn = getDaysInMonth(maxYear, maxMonth);
                 let projected;
                 if (rest.length === 0) {
                     // Only day 1 data — cannot extrapolate run rate, use as-is
@@ -510,9 +509,13 @@ async function runForecast() {
             btn.disabled = false; return;
         }
 
-        // Last actual + MoM
-        const lastActual = series[series.length - 1];
-        const momChange  = lastActual && lastActual.value !== 0 ? (result.forecast - lastActual.value) / Math.abs(lastActual.value) : null;
+        // lastActual = projected current month (May) — day-1-isolated projection
+        // MoM = June forecast vs projected May (correct baseline)
+        const lastActual    = series[series.length - 1]; // projected current month (May)
+        const prevFullMonth = series.length >= 2 ? series[series.length - 2] : null; // last completed month (Apr) — for reference only
+        const momChange     = lastActual && lastActual.value !== 0
+            ? (result.forecast - lastActual.value) / Math.abs(lastActual.value)
+            : null;
         const sameLastYear = series.find(s => s.month === tMonth && s.year === tYear - 1);
         const yoyChange    = sameLastYear && sameLastYear.value !== 0 ? (result.forecast - sameLastYear.value) / Math.abs(sameLastYear.value) : null;
 
@@ -549,7 +552,7 @@ async function runForecast() {
         }
         acctResults.sort((a,b) => b.result.forecast - a.result.forecast);
 
-        renderResults({ result, series, tMonth, tYear, tgtLabel, lastActual, momChange, yoyChange, sameLastYear, geoForecasts, acctResults, nPlateau, nGrowth, nDecline, nTotal, window_ });
+        renderResults({ result, series, tMonth, tYear, tgtLabel, lastActual, prevFullMonth, momChange, yoyChange, sameLastYear, geoForecasts, acctResults, nPlateau, nGrowth, nDecline, nTotal, window_ });
 
     } catch(e) {
         document.getElementById('loadingMsg').textContent = 'Error: ' + e.message;
@@ -560,7 +563,7 @@ async function runForecast() {
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────────
-function renderResults({ result, series, tMonth, tYear, tgtLabel, lastActual, momChange, yoyChange, sameLastYear, geoForecasts, acctResults, nPlateau, nGrowth, nDecline, nTotal, window_ }) {
+function renderResults({ result, series, tMonth, tYear, tgtLabel, lastActual, prevFullMonth, momChange, yoyChange, sameLastYear, geoForecasts, acctResults, nPlateau, nGrowth, nDecline, nTotal, window_ }) {
 
     const regimeLbl = result.regime.charAt(0).toUpperCase() + result.regime.slice(1);
     const regimeCls = `regime-${result.regime}`;
@@ -577,9 +580,9 @@ function renderResults({ result, series, tMonth, tYear, tgtLabel, lastActual, mo
             <span class="hero-badge ${regimeCls}">${regimeLbl} regime</span>
         </div>
         <div class="hero-cell">
-            <div class="hero-label">vs Last Month</div>
+            <div class="hero-label">vs ${lastActual ? MONTH_NAMES[lastActual.month]+' (Projected)' : 'Last Month'}</div>
             <div class="hero-value tnum">${momChange !== null ? dU(momChange) : '—'}</div>
-            <div class="hero-sub">${lastActual ? MONTH_NAMES[lastActual.month].slice(0,3)+' actual: '+fmtK(lastActual.value) : ''}</div>
+            <div class="hero-sub">${lastActual ? MONTH_NAMES[lastActual.month].slice(0,3)+' projected: '+fmtK(lastActual.value) : ''}</div>
         </div>
         <div class="hero-cell">
             <div class="hero-label">vs Same Month LY</div>
